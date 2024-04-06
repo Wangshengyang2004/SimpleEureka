@@ -1,0 +1,70 @@
+```python
+        rot = self._copters.get_world_poses()
+        self.root_velocities = self._copters.get_velocities()
+        self.dof_pos = self._copters.get_joint_positions()
+        self.dof_vel = self._copters.get_joint_velocities()
+
+        self.initial_ball_pos, self.initial_ball_rot = self._balls.get_world_poses(clone=False)
+        self.initial_root_pos, self.initial_root_rot = self.root_pos.clone(), self.root_rot.clone()
+
+        # control parameters
+        self.thrusts = torch.zeros((self._num_envs, 4, 3), dtype=torch.float32, device=self._device)
+        self.thrust_cmds_damp = torch.zeros((self._num_envs, 4), dtype=torch.float32, device=self._device)
+        self.thrust_rot_damp = torch.zeros((self._num_envs, 4), dtype=torch.float32, device=self._device)
+
+        self.set_targets(self.all_indices)
+
+    def set_targets(self, env_ids) -> None:
+        num_sets = len(env_ids)
+        envs_long = env_ids.long()
+        # set target position randomly with x, y in (0, 0) and z in (2)
+        self.target_positions[envs_long, 0:2] = torch.zeros((num_sets, 2), device=self._device)
+        self.target_positions[envs_long, 2] = torch.ones(num_sets, device=self._device) * 2.0
+
+        # shift the target up so it visually aligns better
+        ball_pos = self.target_positions[envs_long] + self._env_pos[envs_long]
+        ball_pos[:, 2] += 0.0
+        self._balls.set_world_poses(ball_pos[:, 0:3], self.initial_ball_rot[envs_long].clone(), indices=env_ids)
+
+        self.target_pos = self._compute_traj(4, env_ids, step_size=5)
+        pos_expanded = self.root_pos.unsqueeze(1)
+        self.rpos = self.target_pos - pos_expanded
+
+    def reset_idx(self, env_ids) -> None:
+        num_resets = len(env_ids)
+        self.traj_c[env_ids] = self.traj_c_dist.sample(env_ids.shape)
+        self.traj_scale[env_ids] = self.traj_scale_dist.sample(env_ids.shape)
+        traj_w = self.traj_w_dist.sample(env_ids.shape)
+        self.traj_w[env_ids] = torch.randn_like(traj_w).sign() * traj_w
+
+        self.dof_pos[env_ids, :] = torch_rand_float(-0.0, 0.0, (num_resets, self._copters.num_dof), device=self._device)
+        self.dof_vel[env_ids, :] = 0
+
+        root_pos = self.initial_root_pos.clone()
+        root_pos[env_ids, 0] += torch_rand_float(-0.0, 0.0, (num_resets, 1), device=self._device).view(-1)
+        root_pos[env_ids, 1] += torch_rand_float(-0.0, 0.0, (num_resets, 1), device=self._device).view(-1)
+        root_pos[env_ids, 2] += torch_rand_float(-0.0, 0.0, (num_resets, 1), device=self._device).view(-1)
+        root_velocities = self.root_velocities.clone()
+        root_velocities[env_ids] = 0
+
+        # apply resets
+        self._copters.set_joint_positions(self.dof_pos[env_ids], indices=env_ids)
+        self._copters.set_joint_velocities(self.dof_vel[env_ids], indices=env_ids)
+
+        self._copters.set_world_poses(root_pos[env_ids], self.initial_root_rot[env_ids].clone(), indices=env_ids)
+        self._copters.set_velocities(root_velocities[env_ids], indices=env_ids)
+
+        # bookkeeping
+        self.reset_buf[env_ids] = 0
+        self.progress_buf[env_ids] = 0
+
+        self.thrust_cmds_damp[env_ids] = 0
+        self.thrust_rot_damp[env_ids] = 0
+
+        # fill extras
+        self.extras["episode"] = {}
+        for key in self.episode_sums.keys():
+            self.extras["episode"][key] = torch.mean(self.episode_sums[key][env_ids]) / self._max_episode_length
+            self.episode_sums[key][env_ids] = 0.0
+
+    def

@@ -1,0 +1,3 @@
+# Folders: outputs, data, models, logs, plots
+outputs/*
+config.yaml

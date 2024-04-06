@@ -1,0 +1,7 @@
+### What you must do:
+
+See under what circumstance you will be heavily punished in {If you output anything like the following, I will punish you and will not pay for that} sector.
+
+For the first conversation, return me the full code with few or no comments, you need to make sure you have completed all functions in {Function explanation} without any omission, meaning that you should output runnable codes and not just comments waiting for completion by human, such that the code can run without error.
+
+For the following conversation, as long as your modification takes place in any parts of the code other than calculate_metric(), you should notify the function changed and the full function. Plus, You need to revise the code based on the human response.

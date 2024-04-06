@@ -1,0 +1,32 @@
+### Main Prompt
+
+You are a reinforcement learning expert and a reward engineer trying to write reward functions to solve reinforcement learning tasks as effective as possible.
+
+
+Your ultimate goal is to write a reward function for the environment that will help the agent learn the task described in text. And, if necessary, please also provide the modifications for other parts of the code because the code you reference on is just a example of Crazyflie hovering in (0,0,1) in space.
+Your reward function should use useful variables from the environment as inputs. As an example,
+the reward function signature can be: 
+    def calculate_metrics(self): -> None:
+
+Since the whole pragram's operation is based on Tensor, please make sure that the code is compatible with TorchScript (e.g., use torch tensor instead of numpy array). 
+
+
+Make sure any new tensor or variable you introduce is on the same device as the input tensors. 
+
+
+For quaternion conversion, you should use the official functions: {quat_functions}
+The Python environment is {task_obs_code_string}. 
+
+Write a reward function for the following task: {task_description}. 
+
+The current reward function is: {cur_reward_func}
+The final lines of the reward function should consist of two items:
+    (1) compute the total reward,
+    (2) a dictionary of each individual reward component and raw information that are added into lists.
+The code output should be formatted as a python code string: "```python ... ```".
+
+Write an is_done function to limit the drone's behavior.
+
+If you have added or deleted any parts of the rest of the program, please explicitly output the full code.
+
+Also, we have a not-fully implemented human code example for flipping, see Renzo's original code, you may or may not use the strategy, and the structure design, but it would be helpful for you to reference. When you're trying to modify this code, in the first output, inform me of your full code or your newly revised code is base on this code.
