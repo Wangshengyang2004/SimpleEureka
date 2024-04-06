@@ -17,8 +17,9 @@ class CrazyflieTask(RLTask):
         self.update_config(sim_config)
         self._num_observations = 18
         self._num_actions = 4
-        self._ball_position = torch.tensor([0, 0, 2.0], device=self.device)
         RLTask.__init__(self, name=name, env=env)
+        self._ball_position = torch.tensor([0, 0, 2.0], device=self.device)
+        
         self._crazyflie_position = torch.tensor([0, 0, 2.0], device=self.device)
         self.traj_c_dist = D.Uniform(torch.tensor(-0.6, device=self.device), torch.tensor(0.6, device=self.device))
         self.traj_scale_dist = D.Uniform(torch.tensor([1.8, 1.8, 1.], device=self.device), torch.tensor([3.2, 3.2, 1.5], device=self.device))
