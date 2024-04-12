@@ -13,15 +13,15 @@ import shutil
 import time 
 import os
 import datetime
-
+import re
 now = datetime.datetime.now()
 
 from utils.extract_task_code import file_to_string
 logging.basicConfig(level=logging.INFO)
 EUREKA_ROOT_DIR = os.getcwd()
 # Clean the results directory
-shutil.rmtree(f'{EUREKA_ROOT_DIR}/results', ignore_errors=True)
-os.makedirs(f'{EUREKA_ROOT_DIR}/results', exist_ok=True)
+shutil.rmtree(f'{EUREKA_ROOT_DIR}/results/{now}', ignore_errors=True)
+os.makedirs(f'{EUREKA_ROOT_DIR}/results/{now}', exist_ok=True)
 
 # Define a type alias for the config object
 @hydra.main(config_path="./", config_name="config",version_base="1.1")
@@ -59,6 +59,7 @@ def main(cfg: DictConfig) -> None:
                 {"role": "system", "content": "Use English to repond to the following prompts on RL code optimization task."},
                 {"role": "user", "content": f'{content}'}
             ]
+    resp = []
     # Generate a response from the model using the full prompt until the #END sign
     for i in range(1, 10):
         completion = client.chat.completions.create(
@@ -67,15 +68,24 @@ def main(cfg: DictConfig) -> None:
             temperature=0.3,
         )
         response = completion.choices[0].message.content
+        resp.append(response)
         logging.info(response)
+        
         # Save the response to a file under {EUREKA_ROOT_DIR}/results
-        with open(f'{EUREKA_ROOT_DIR}/results/response_{i}.txt', 'w') as f:
+        with open(f'{EUREKA_ROOT_DIR}/results/{now}/response_{i}.txt', 'w') as f:
             f.write(response)
-        if "#END" in response:
+        if any("#END", "# END") in response:
             break
         else:
             messages.append({"role": "assistant", "content": f'{response}' + "continue\n"})
     logging.info("Response saved to file")
-
+    
+    # Parse the files to get functions we need: newly defined function, calculate_metric, is_done
+    # Use the regex to extract the function names, names of the functions are defined in the prompt
+    re = r"def\s*(\w+)\s*\("
+    functions = []
+    for i in len(resp):
+        functions.append(re.findall(resp[i]))
+    
 if __name__ == "__main__":
     main()
