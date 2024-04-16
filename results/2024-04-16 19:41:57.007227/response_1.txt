@@ -1,0 +1,68 @@
+```python
+import torch
+import math
+from typing import Union
+from omni.isaac.core.utils.torch.rotations import *
+
+def calculate_metrics(self) -> None:
+    root_positions = self.root_pos - self._env_pos
+    root_quats = self.root_rot
+    root_velocities = self.root_velocities
+    root_angvels = root_velocities[:, 3:]
+
+    # Calculate the target positions for flipping behavior
+    _, global_target_positions = self.target_position_rot(root_positions, steps=0)
+
+    # Position reward: closeness to target position
+    target_dist = torch.norm(root_positions - global_target_positions, dim=1)
+    pos_reward = torch.exp(-3 * target_dist)
+    
+    # Orientation reward: drone should maintain an upright orientation during flips
+    norm_up_vector = root_quats.new_tensor([0, 0, 1.0])
+    orientation_cos = torch.sum(norm_up_vector * root_quats, dim=1)
+    orient_reward = torch.exp(-3 * (1 - torch.clamp(orientation_cos, -1.0, 1.0)))
+
+    # Speed reward: drone should maintain a certain speed during flips
+    desired_speed = 2 * 0.3 * math.pi / 3.5  # Assuming a radius of 0.3 for the flipping circle
+    speed_reward = torch.exp(-3 * torch.abs(root_velocities[:, 2] - desired_speed))
+
+    # Angular velocity reward: drone should minimize unnecessary rotations
+    angvel_reward = torch.exp(-0.5 * (root_angvels[:, 0] ** 2 + root_angvels[:, 1] ** 2))
+
+    # Spin reward: drone should rotate around the Y-axis at a specific rate during flips
+    target_spin_rate = 2 * math.pi / 3.5  # Target spin rate
+    spin_reward = torch.exp(-3 * torch.abs(root_angvels[:, 2] - target_spin_rate))
+
+    # Combined reward
+    self.rew_buf[:] = pos_reward * orient_reward * speed_reward * angvel_reward * spin_reward
+
+    # Log individual reward components
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += orient_reward
+    self.episode_sums["rew_speed"] += speed_reward
+    self.episode_sums["rew_angvel"] += angvel_reward
+    self.episode_sums["rew_spin"] += spin_reward
+
+    # Log raw information
+    self.episode_sums["raw_dist"] += target_dist
+    self.episode_sums["raw_orient"] += orientation_cos
+
+def is_done(self) -> None:
+    # Check for out-of-bounds conditions or episode length
+    out_of_bounds = self.root_positions[:, 2] < -2.0
+    out_of_bounds |= self.root_positions[:, 2] > 6.0
+
+    episode_length = self.progress_buf >= self._max_episode_length - 1
+
+    # Mark episode as done if out of bounds or episode length reached
+    self.reset_buf[:] = torch.where(out_of_bounds | episode_length, torch.ones_like(self.reset_buf), torch.zeros_like(self.reset_buf))
+
+# Add new variables to the observation space if needed
+# For example, if you added a new observation variable 'new_var', you would update the dictionary like this:
+# self.episode_sums = {
+#     ...
+#     "new_var": torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+# }
+
+#END
+```

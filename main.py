@@ -2,7 +2,6 @@ import hydra
 from omegaconf import DictConfig
 from openai import OpenAI
 from loguru import logger
-import logger
 import re
 import subprocess
 from pathlib import Path
@@ -43,7 +42,7 @@ def main(cfg: DictConfig) -> None:
     task_description = file_to_string(f"{EUREKA_ROOT_DIR}/input/task_description.txt")
     crazyflie_examples = file_to_string(
         f"{EUREKA_ROOT_DIR}/input/crazyflie.py"
-    ) + file_to_string(f"{EUREKA_ROOT_DIR}/input/crazyflie_renzo.py")
+    ) + file_to_string(f"{EUREKA_ROOT_DIR}/input/crazyflie_human_diff.py")
     crazyflie_config = file_to_string(f"{EUREKA_ROOT_DIR}/input/crazyflie.yaml")
     tips = file_to_string(f"{prompt_dir}/tips.txt")
     must_do = file_to_string(f"{prompt_dir}/must_do.txt")
@@ -104,14 +103,16 @@ def main(cfg: DictConfig) -> None:
     # Use the regex to extract the function names, names of the functions are defined in the prompt
     pattern = r"def\s*(\w+)\s*\("
     functions = []
-    for i in len(resp):
+    for i in range(len(resp)):
         functions.append(re.findall(pattern=pattern, string=resp[i]))
     logger.info(f"New Functions: {functions}")
-    subprocess.run(
-        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} scripts/rl_train.py task=Crazyflie headless=true",
+    subprocess.call(
+        args=f"cd {ISAAC_ROOT_DIR}; ~/.local/share/ov/pkg/isaac_sim-*/python.sh scripts/rlgames_train.py task=Crazyflie headless=true",
         shell=True,
+        # use bin/bash to run the command
+        executable="/bin/bash",
     )
-
+    # subprocess.call(['lxterminal -e  python3 try.py'], cwd='/home/pi/try', shell=True)
 
 if __name__ == "__main__":
     main()

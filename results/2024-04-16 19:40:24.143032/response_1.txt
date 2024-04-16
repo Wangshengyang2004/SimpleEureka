@@ -1,0 +1,42 @@
+```python
+def calculate_metrics(self) -> None:
+    # Calculate distances and rotations for reward computation
+    target_dist = torch.norm(self.root_pos - self.target_positions, dim=1)
+    target_orient = torch.abs(quat_orientation(self.root_rot) * torch.inverse(quat_orientation(self.target_positions)))
+    target_orient = torch.acos(0.5 * (1 + 2 * torch.sum(target_orient, dim=1)))
+    target_orient = torch.clamp(target_orient, max=math.pi / 2)  # Limit orientation error to 90 degrees
+
+    # Calculate speed and angular velocity
+    speed = torch.norm(self.root_velocities[:, :3], dim=1)
+    angvel = torch.norm(self.root_velocities[:, 3:], dim=1)
+
+    # Define reward components based on the task requirements
+    pos_reward = torch.exp(-5 * target_dist)
+    orient_reward = torch.exp(-5 * target_orient)
+    speed_reward = torch.exp(-5 * (speed - 2 * math.pi))  # Assume desired speed is 2 * pi
+    angvel_reward = torch.exp(-5 * angvel)  # Reward lower angular velocities for stability
+
+    # Combine rewards and compute total reward
+    self.rew_buf = pos_reward * orient_reward * speed_reward * angvel_reward
+
+    # Log individual reward components and raw information
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += orient_reward
+    self.episode_sums["rew_speed"] += speed_reward
+    self.episode_sums["rew_angvel"] += angvel_reward
+    self.episode_sums["raw_dist"] += target_dist
+    self.episode_sums["raw_orient"] += target_orient
+    self.episode_sums["raw_speed"] += speed
+    self.episode_sums["raw_angvel"] += angvel
+
+def is_done(self) -> None:
+    # Terminate episodes if the drone strays too far or flips too much
+    too_far = torch.norm(self.root_pos, dim=1) > 5
+    too_flipped = angvel > 5 * math.pi  # Assume max allowed angular velocity is 5 * pi
+    done = (too_far | too_flipped).int()
+
+    # Update done flags for each environment
+    self.reset_buf[:] = done
+
+#END
+```

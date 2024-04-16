@@ -1,0 +1,46 @@
+```python
+def calculate_metrics(self) -> None:
+    # Calculate the distance between the drone and the target
+    target_dist = torch.norm(self.root_pos - self.target_positions, dim=1)
+    
+    # Reward for being close to the target
+    pos_reward = torch.exp(-3 * target_dist)
+    
+    # Reward for drone's orientation
+    forward_vector = torch.tensor([0, 0, 1.0], device=self.device)
+    drone_orientation = self.root_quats[:, 2]  # Z component of the quaternion
+    orient_reward = torch.exp(-3 * (1 - torch.abs(drone_orientation) - 0.5) ** 2)
+    
+    # Reward for fast flipping
+    angvel_norm = torch.norm(self.root_angvels, dim=1)
+    flip_reward = torch.exp(-5 * (angvel_norm - 1) ** 2)
+    
+    # Combine all rewards
+    total_reward = pos_reward + orient_reward + flip_reward
+    
+    # Log individual reward components
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += orient_reward
+    self.episode_sums["rew_flip"] += flip_reward
+    
+    return total_reward, {
+        "total_reward": total_reward,
+        "rew_pos": pos_reward,
+        "rew_orient": orient_reward,
+        "rew_flip": flip_reward,
+    }
+
+def is_done(self) -> None:
+    # Check if the drone has lost control or if the episode is too long
+    done = (self.root_positions[:, 2] < -2.0) | (self.root_positions[:, 2] > 6.0) | (self.progress_buf >= self._max_episode_length - 1)
+    return done
+
+# New variables added to the observation space
+new_episode_sums = {
+    "rew_pos": torch.zeros(self._num_envs, device=self.device),
+    "rew_orient": torch.zeros(self._num_envs, device=self.device),
+    "rew_flip": torch.zeros(self._num_envs, device=self.device)
+}
+```
+
+#END

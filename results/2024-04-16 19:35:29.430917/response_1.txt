@@ -1,0 +1,40 @@
+```python
+def calculate_metrics(self) -> None:
+    # Calculate distances to the target and normalize them for the reward
+    target_dist = torch.norm(self.root_pos - self.target_positions, dim=1)
+    self.target_dist = target_dist
+
+    # Calculate orientation reward based on the up vector of the quadcopter
+    ups = quat_axis(self.root_rot, 2)
+    up_reward = torch.clamp(ups[..., 2], min=0.5, max=1.0)  # Assuming a minimum up vector of 0.5 for a successful orientation
+
+    # Calculate speed reward based on the desired speed during flips
+    desired_speed = 2 * math.pi * 0.3 / 3.5  # Assuming a circle with radius 0.3 and a duration of 3.5 seconds for a flip
+    current_speeds = torch.norm(self.root_vel, dim=1)
+    speed_reward = torch.exp(-((current_speeds - desired_speed) / desired_speed).pow(2))
+
+    # Calculate the reward for the trajectory of the quadcopter
+    trajectory_reward = torch.norm(self.root_vel, dim=1)  # Assuming a higher speed results in a better trajectory
+
+    # Combine all rewards and normalize them
+    combined_reward = (pos_reward + up_reward + speed_reward + trajectory_reward) / 4
+
+    # Store the individual rewards for logging
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += up_reward
+    self.episode_sums["rew_speed"] += speed_reward
+    self.episode_sums["rew_trajectory"] += trajectory_reward
+
+    self.rew_buf[:] = combined_reward
+
+def is_done(self) -> None:
+    # Check if the quadcopter has deviated too much from the target or orientation
+    die = torch.zeros_like(self.reset_buf)
+    die = torch.where(self.target_dist > 10.0, torch.ones_like(self.reset_buf), die)
+    die = torch.where(ups[..., 2] < 0.5, torch.ones_like(self.reset_buf), die)
+
+    # Check if the episode length has reached its maximum
+    self.reset_buf[:] = torch.where(self.progress_buf >= self._max_episode_length - 1, torch.ones_like(self.reset_buf), die)
+
+#END
+```

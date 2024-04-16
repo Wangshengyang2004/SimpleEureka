@@ -31,3 +31,23 @@ def import_class_from_file(file_path, function_name):
     
     function = getattr(module, function_name)
     return function
+
+def inject_back(filepath:str, text:str, marker:str):
+    """Inject the Eureka generated functions back to the original python files,
+    Will only overwrite functions with the same name and add new functions before def calculate_metrics
+
+    Args:
+        filepath (str): _description_
+        text (str): _description_
+        marker (str): _description_
+    """
+    with open(filepath, 'r') as file:
+        lines = file.readlines()
+    
+    for i, line in enumerate(lines):
+        if marker in line:
+            lines.insert(i+1, text)
+            break
+    
+    with open(filepath, 'w') as file:
+        file.write("".join(lines))

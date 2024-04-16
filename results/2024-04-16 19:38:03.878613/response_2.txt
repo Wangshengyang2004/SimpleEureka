@@ -1,0 +1,43 @@
+```python
+vel).sum(-1)
+
+y_angvel = root_angvels[:, 1]  # Y-axis angular velocity for spinning
+desired_y_angvel = 2 * math.pi / 3.5  # Desired spin rate around Y-axis
+y_angvel_diff = y_angvel - desired_y_angvel
+y_penalty = torch.square(y_angvel_diff).sum(-1)
+
+# Higher weight for Y-axis spin reward, lower weight for roll and yaw penalties to encourage minimal movements
+combined_penalty = 0.1 * torch.exp(-1.0 * y_penalty) + 0.05 * torch.exp(-1.0 * roll_penalty) + 0.05 * torch.exp(-1.0 * yaw_penalty)
+
+# Update spin_reward with the combined penalty
+spin_reward = combined_penalty
+
+# combined reward
+self.rew_buf[:] = (pos_reward + speed_reward + coline_reward) * (1 + up_reward + spin_reward)
+
+# log episode reward sums
+self.episode_sums["rew_pos"] += pos_reward
+self.episode_sums["rew_orient"] += up_reward
+self.episode_sums["rew_speed"] += speed_reward
+self.episode_sums["rew_coline"] += coline_reward
+self.episode_sums["rew_spin"] += spin_reward
+
+# log raw info
+self.episode_sums["raw_dist"] += target_dist
+self.episode_sums["raw_orient"] += ups[..., 2]
+
+    def is_done(self) -> None:
+        # resets due to misbehavior
+        ones = torch.ones_like(self.reset_buf)
+        die = torch.zeros_like(self.reset_buf)
+        die = torch.where(self.target_dist > 10.0, ones, die)
+
+        # z >= 0.5 & z <= 5.0 & up > 0
+        die = torch.where(self.root_positions[..., 2] < -2.0, ones, die)
+        die = torch.where(self.root_positions[..., 2] > 6.0, ones, die)
+
+        # resets due to episode length
+        self.reset_buf[:] = torch.where(self.progress_buf >= self._max_episode_length - 1, ones, die)  # Written by human, the parts of modification different from the original one,
+        # including new buffer contents, new task goal, and new reward computation.
+    #END
+```
