@@ -1,4 +1,5 @@
-## Main Prompt
+2024-04-16 21:20:44.392 | INFO     | __main__:main:59 - Current working directory: /home/simonwsy/SimpleEureka
+2024-04-16 21:20:44.392 | INFO     | __main__:main:79 - Full Prompt: ## Main Prompt
 
 ### System
 
@@ -695,6 +696,43 @@ See under what circumstance you will be heavily punished in {If you output anyth
         # Reset task-specific elements and prepare for a new episode
         # This could involve repositioning the drone, resetting the target, etc.
 
-```
+```Add a sign for end of your code, when you finish the is_done part: #END
 
-Also, I encourage you to not to make much comments after the code, we need to save tokensAdd a sign for end of your code, when you finish the is_done part: #END
+2024-04-16 21:21:05.047 | INFO     | __main__:main:109 - ```python
+def calculate_metrics(self) -> None:
+    # Calculate the distance between the drone and the target
+    target_dist = torch.norm(self.root_pos - self.target_positions, dim=1)
+    
+    # Reward for being close to the target
+    pos_reward = torch.exp(-3 * target_dist)
+    
+    # Reward for having the correct orientation
+    norm_quat = torch.norm(self.root_quats, dim=1, keepdim=True)
+    dot_product = torch.sum(self.root_quats / norm_quat * self.target_orientations / norm_quat, dim=1)
+    orient_reward = torch.where(dot_product > 0.95, 1.0, 0.0)  # Set a threshold for considering the orientation correct
+    
+    # Reward for fast flipping
+    flip_speed = torch.norm(self.root_angvels, dim=1)
+    flip_reward = torch.exp(-3 * (flip_speed - 2 * math.pi) ** 2)  # Assume desired flipping speed is 2pi rad/s
+    
+    # Combine all rewards and normalize
+    total_reward = (pos_reward + orient_reward + flip_reward) / 3.0
+    self.rew_buf = total_reward
+    
+    # Log individual rewards
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += orient_reward
+    self.episode_sums["rew_flip"] += flip_reward
+
+def is_done(self) -> None:
+    # Check if the drone has lost control or completed the task
+    done = (self.root_pos[:, 2] < -1.0) | (self.root_pos[:, 2] > 5.0) | (self.progress_buf >= self._max_episode_length - 1)
+    # Mark the episode as done if any of the above conditions are met
+    self.reset_buf[:] = done
+
+#END
+```
+Please note that the provided reward functions and done conditions are based on the given task description and may require adjustments to work optimally with the specific simulation environment. The `target_orientations` variable is assumed to be defined elsewhere in the class, representing the desired orientation for the drone. Additionally, the `self.target_positions` and `self._max_episode_length` are also assumed to be defined, representing the target position and maximum episode length, respectively.
+2024-04-16 21:21:05.047 | INFO     | __main__:main:125 - Cleaned responses:['```python\ndef calculate_metrics(self) -> None:\n    # Calculate the distance between the drone and the target\n    target_dist = torch.norm(self.root_pos - self.target_positions, dim=1)\n    \n    # Reward for being close to the target\n    pos_reward = torch.exp(-3 * target_dist)\n    \n    # Reward for having the correct orientation\n    norm_quat = torch.norm(self.root_quats, dim=1, keepdim=True)\n    dot_product = torch.sum(self.root_quats / norm_quat * self.target_orientations / norm_quat, dim=1)\n    orient_reward = torch.where(dot_product > 0.95, 1.0, 0.0)  # Set a threshold for considering the orientation correct\n    \n    # Reward for fast flipping\n    flip_speed = torch.norm(self.root_angvels, dim=1)\n    flip_reward = torch.exp(-3 * (flip_speed - 2 * math.pi) ** 2)  # Assume desired flipping speed is 2pi rad/s\n    \n    # Combine all rewards and normalize\n    total_reward = (pos_reward + orient_reward + flip_reward) / 3.0\n    self.rew_buf = total_reward\n    \n    # Log individual rewards\n    self.episode_sums["rew_pos"] += pos_reward\n    self.episode_sums["rew_orient"] += orient_reward\n    self.episode_sums["rew_flip"] += flip_reward\n\ndef is_done(self) -> None:\n    # Check if the drone has lost control or completed the task\n    done = (self.root_pos[:, 2] < -1.0) | (self.root_pos[:, 2] > 5.0) | (self.progress_buf >= self._max_episode_length - 1)\n    # Mark the episode as done if any of the above conditions are met\n    self.reset_buf[:] = done\n\n#END\n```\nPlease note that the provided reward functions and done conditions are based on the given task description and may require adjustments to work optimally with the specific simulation environment. The `target_orientations` variable is assumed to be defined elsewhere in the class, representing the desired orientation for the drone. Additionally, the `self.target_positions` and `self._max_episode_length` are also assumed to be defined, representing the target position and maximum episode length, respectively.']
+2024-04-16 21:21:05.048 | INFO     | __main__:main:163 - Updated crazyflie.py with new functions saved to /home/simonwsy/SimpleEureka/results/2024-04-16 21:20:44.316982/updated_crazyflie.py
+2024-04-16 21:22:26.867 | INFO     | __main__:main:177 - Task complete, shutting down

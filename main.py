@@ -28,6 +28,26 @@ RESULT_DIR = f"{EUREKA_ROOT_DIR}/results/{now}"
 shutil.rmtree(f"{EUREKA_ROOT_DIR}/results/{now}", ignore_errors=True)
 os.makedirs(f"{EUREKA_ROOT_DIR}/results/{now}", exist_ok=True)
 
+def clean_response(text):
+    # Remove import statements
+    text = re.sub(r'^\s*import .*$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^\s*from .* import .*$', '', text, flags=re.MULTILINE)
+
+    # Remove all function definitions except magic methods like __init__, __str__, etc.
+    text = re.sub(r'^\s*def (?!(?:__\w+__)\s*\().*$', '', text, flags=re.MULTILINE)
+
+    # Find and remove everything after the last set of triple backticks
+    last_backticks = text.rfind('```')
+    if last_backticks != -1:
+        text = text[:last_backticks]
+
+    # Remove all triple backticks
+    text = text.replace('```', '')
+
+    # Clean up extra newlines
+    text = re.sub(r'\n\s*\n', '\n', text)  # Reduce multiple newlines to single ones
+
+    return text.strip()
 
 # Define a type alias for the config object
 @hydra.main(config_path="./", config_name="config", version_base="1.1")
@@ -77,11 +97,12 @@ def main(cfg: DictConfig) -> None:
     ]
     resp = []
     # Generate a response from the model using the full prompt until the #END sign
-    for i in range(1, 10):
+    for i in range(1, 3):
         completion = client.chat.completions.create(
             model=cfg.api.model,
             messages=messages,
             temperature=cfg.api.temperature,
+            max_tokens=cfg.api.max_tokens,
         )
         if response := completion.choices[0].message.content:
             resp.append(response)
@@ -99,50 +120,60 @@ def main(cfg: DictConfig) -> None:
     else:
         logger.info("Error: #END not found in the response or no response received.")
 
-    # Parse the files to get functions we need: newly defined function, calculate_metric, is_done
-    # Use the regex to extract the function names, names of the functions are defined in the prompt
-    pattern = r"def\s*(\w+)\s*\("
-    functions = []
-    for i in range(len(resp)):
-        functions.append(re.findall(pattern=pattern, string=resp[i]))
+    # for i in range(len(resp)):
+    #     resp[i] = clean_response(resp[i])
+    logger.info(f"Cleaned responses:{resp}")
+    pattern = r"def\s+(\w+)\s*\("
+    functions = sum([re.findall(pattern, response) for response in resp], [])
 
-    # Assuming 'functions' is a list of function names extracted from the responses
-    functions_to_replace = [func for sublist in functions for func in sublist]  # Flatten the list if necessary
-
-    # Read the original crazyflie.py
     with open(f"{EUREKA_ROOT_DIR}/input/crazyflie.py", "r") as file:
         original_crazyflie_code = file.read()
 
-    # Function to remove existing definitions of functions
     def remove_old_functions(code, function_names):
         for func_name in function_names:
-            # Regex to find a function definition and remove it
-            # This regex assumes no nested definitions and is simplistic
-            pattern = rf"(def {re.escape(func_name)}\(.*?\):.*?)(?=\ndef|\Z)", re.DOTALL
-            code = re.sub(pattern, "", code, flags=re.DOTALL)
+            # Pattern to match the function and everything up until the start of the next function or end of the class
+            pattern = r"^\s*def " + re.escape(func_name) + r".*?(?=\n\s*def |\Z)"
+            # Replace the pattern with an empty string
+            code = re.sub(pattern, "", code, flags=re.MULTILINE | re.DOTALL)
         return code
 
-    # Remove the old function definitions
-    updated_code = remove_old_functions(original_crazyflie_code, functions_to_replace)
+    updated_code = remove_old_functions(original_crazyflie_code, functions)
 
-    # Append the new function definitions (assuming 'resp' is a list of code snippets)
-    updated_code += "\n# New Code Starts Here\n" + "\n".join(resp)
+    # Append new code with correct indentation
+    new_code_snippets = "\n    ".join(resp).replace("\n", "\n    ")
+    updated_code += "\n    # New Code Starts Here\n    " + new_code_snippets
 
-    # Save the updated script
-    updated_file_path = f"{EUREKA_ROOT_DIR}/input/updated_crazyflie.py"
+    def final_cleaner(code):
+        # Remove the #END sign
+        code = code.replace("#END", "")
+        code = code.replace("```", "")
+        # Remove the continue sign
+        code = code.replace("```python", "")
+        code = code.replace("python", "")
+        return code
+    
+    updated_code = final_cleaner(updated_code)
+    updated_file_path = f"{RESULT_DIR}/updated_crazyflie.py"
+    # Rmove the updated crazyflie.py file if it exists
+    if os.path.exists(updated_file_path):
+        os.remove(updated_file_path)
     with open(updated_file_path, "w") as file:
         file.write(updated_code)
-
+    
     logger.info(f"Updated crazyflie.py with new functions saved to {updated_file_path}")
 
-    logger.info(f"New Functions: {functions}")
-    # subprocess.call(
-    #     args=f"cd {ISAAC_ROOT_DIR}; ~/.local/share/ov/pkg/isaac_sim-*/python.sh scripts/rlgames_train.py task=Crazyflie headless=true",
-    #     shell=True,
-    #     # use bin/bash to run the command
-    #     executable="/bin/bash",
-    # )
-
-
+    RUN = input("Do you want to run the updated code? (y/n): ")
+    if RUN == "y":
+        # Copy the updated crazyflie.py to the Isaac Sim directory
+        shutil.copyfile(updated_file_path, f"{ISAAC_ROOT_DIR}/tasks/crazyflie.py")
+        subprocess.call(
+            args=f"cd {ISAAC_ROOT_DIR}; ~/.local/share/ov/pkg/isaac_sim-*/python.sh scripts/rlgames_train.py task=Crazyflie headless=true",
+            shell=True,
+            # use bin/bash to run the command
+            executable="/bin/bash",
+        )
+    else:
+        pass
+    logger.info("Task complete, shutting down")
 if __name__ == "__main__":
     main()

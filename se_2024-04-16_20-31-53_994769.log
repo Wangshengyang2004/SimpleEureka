@@ -1,4 +1,5 @@
-## Main Prompt
+2024-04-16 20:31:54.068 | INFO     | __main__:main:39 - Current working directory: /home/simonwsy/SimpleEureka
+2024-04-16 20:31:54.068 | INFO     | __main__:main:59 - Full Prompt: ## Main Prompt
 
 ### System
 
@@ -695,6 +696,42 @@ See under what circumstance you will be heavily punished in {If you output anyth
         # Reset task-specific elements and prepare for a new episode
         # This could involve repositioning the drone, resetting the target, etc.
 
-```
+```Add a sign for end of your code, when you finish the is_done part: #END
 
-Also, I encourage you to not to make much comments after the code, we need to save tokensAdd a sign for end of your code, when you finish the is_done part: #END
+2024-04-16 20:32:14.450 | INFO     | __main__:main:88 - ```python
+def calculate_metrics(self) -> None:
+    # Calculate distance to target and rewards for position, orientation, and effort
+    target_dist = torch.norm(self.root_pos - self.target_positions, dim=1)
+    pos_reward = torch.exp(-3 * target_dist)  # Exponential decay based on distance for smooth approach
+    up_reward = 1 - (1 - torch.clamp(torch.sum(quat_axis(self.root_rot, 2), dim=1), min=0.5))  # Reward drone for upright orientation
+    effort_reward = -torch.sum(torch.square(self.actions), dim=1)  # Inversely reward the square of control effort for energy efficiency
+
+    # Calculate additional rewards for flipping behavior
+    flipped = (self.progress_buf % 2 == 0).nonzero(as_tuple=False).squeeze(-1)
+    flips_reward = torch.zeros(self._num_envs, device=self._device, dtype=torch.float32)
+    for i in range(len(flipped)):
+        flip_angle = torch.abs(torch.dot(quat_axis(self.root_rot[flipped[i]], 2), torch.tensor([0, 1, 0])))
+        flips_reward[flipped[i]] = 1 - (1 - flip_angle) ** 2  # Reward drone for flipping by rotating around the y-axis
+
+    # Combine all rewards
+    self.rew_buf[:] = pos_reward + up_reward + effort_reward + flips_reward
+
+    # Log individual reward components
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += up_reward
+    self.episode_sums["rew_effort"] += effort_reward
+    self.episode_sums["rew_flips"] += flips_reward
+
+    # Log raw information
+    self.episode_sums["raw_dist"] += target_dist
+    self.episode_sums["raw_orient"] += torch.clamp(torch.sum(quat_axis(self.root_rot, 2), dim=1), min=0.5)
+
+def is_done(self) -> None:
+    # Check for done conditions based on distance to target and drone orientation
+    done = torch.zeros(self._num_envs, device=self._device, dtype=torch.bool)
+    done[(target_dist < 0.5) | (self.progress_buf >= self._max_episode_length - 1)] = True  # Episode ends when close to target or at max episode length
+    self.reset_buf[done] = 1  # Reset environments that are done
+
+#END
+```
+2024-04-16 20:32:14.450 | INFO     | __main__:main:126 - Updated crazyflie.py with new functions saved to /home/simonwsy/SimpleEureka/input/updated_crazyflie.py

@@ -1,4 +1,5 @@
-## Main Prompt
+2024-04-16 21:26:57.009 | INFO     | __main__:main:59 - Current working directory: /home/simonwsy/SimpleEureka
+2024-04-16 21:26:57.009 | INFO     | __main__:main:79 - Full Prompt: ## Main Prompt
 
 ### System
 
@@ -698,3 +699,111 @@ See under what circumstance you will be heavily punished in {If you output anyth
 ```
 
 Also, I encourage you to not to make much comments after the code, we need to save tokensAdd a sign for end of your code, when you finish the is_done part: #END
+
+2024-04-16 21:27:41.358 | INFO     | __main__:main:109 - ```python
+def target_position_rot(self, root_positions, steps):
+    radius = 0.3
+    theta = torch.tensor(-2 * math.pi / 350 * steps)
+    center_z = 2.0
+
+    x = root_positions[:, 0]
+    z = root_positions[:, 2] - center_z
+    
+    scale = radius / torch.sqrt(x**2 + z**2)
+    
+    x1 = x * scale
+    z1 = z * scale
+    
+    new_points = torch.stack([x1, torch.zeros_like(x1), z1], dim=1)
+    
+    cos_theta = torch.cos(theta)
+    sin_theta = torch.sin(theta)
+    
+    x_rotated = new_points[:, 0] * cos_theta + new_points[:, 2] * sin_theta
+    z_rotated = -new_points[:, 0] * sin_theta + new_points[:, 2] * cos_theta
+    
+    rotated_points = torch.stack([x_rotated, new_points[:, 1], z_rotated], dim=1)
+    
+    return new_points, rotated_points
+
+def calculate_metrics(self) -> None:
+    root_positions = self.root_pos - self._env_pos
+    root_quats = self.root_rot
+    root_vel = self.root_velocities[:, :3]
+    root_angvels = self.root_velocities[:, 3:]
+    # self.root_positions = root_positions  # This line is not needed as it is already defined above
+    
+    scaled_points, global_target_positions = self.target_position_rot(root_positions, 0)
+    rotated_points_list = []
+    for i in range(4):
+        _, rotated_points = self.target_position_rot(root_positions, i)
+        rotated_points_list.append(rotated_points)
+
+    next_step = sum(rotated_points_list) / 4
+
+    target_dist = torch.norm(root_positions - global_target_positions, dim=1)
+    self.target_dist = target_dist
+
+    pos_reward = torch.exp(-3 * target_dist)
+
+    rot_target = torch.tensor([0, 1, 0], device=self._device, dtype=torch.float32)
+    norm_rot_target = rot_target / torch.norm(rot_target, dim=1, keepdim=True)
+
+    ups = quat_axis(root_quats, 2)
+    norm_ups = ups / torch.norm(ups, dim=1, keepdim=True)
+    cos_angle = torch.sum(norm_ups * norm_rot_target, dim=1)
+    coeff_rot = 1 - cos_angle
+    up_reward = torch.exp(-3 * coeff_rot)
+
+    radius = 0.3
+    desired_speed = 2 * radius * math.pi / 3.5
+    current_speeds = torch.norm(root_vel, dim=1)
+    speed_diff = torch.abs(current_speeds - desired_speed)
+    speed_reward = torch.exp(-3 * speed_diff)
+
+    traj = next_step - scaled_points
+    norm_root_vel = root_vel / torch.norm(root_vel, dim=1, keepdim=True)
+    norm_traj = traj / torch.norm(traj, dim=1, keepdim=True)
+    dot_product = torch.sum(norm_root_vel * norm_traj, dim=1)
+    colinearity = 1 - dot_product
+    coline_reward = torch.exp(-3 * colinearity)
+
+    roll_angvel = root_angvels[:, 0]
+    yaw_angvel = root_angvels[:, 2]
+    desired_roll_angvel = 0.0
+    desired_yaw_angvel = 0.0
+    roll_penalty = torch.square(roll_angvel - desired_roll_angvel).sum(-1)
+    yaw_penalty = torch.square(yaw_angvel - desired_yaw_angvel).sum(-1)
+    y_angvel = root_angvels[:, 1]
+    desired_y_angvel = 2 * math.pi / 3.5
+    y_angvel_diff = y_angvel - desired_y_angvel
+    y_penalty = torch.square(y_angvel_diff).sum(-1)
+
+    combined_penalty = 0.1 * torch.exp(-1.0 * y_penalty) + 0.05 * torch.exp(-1.0 * roll_penalty) + 0.05 * torch.exp(-1.0 * yaw_penalty)
+
+    spin_reward = combined_penalty
+
+    self.rew_buf[:] = (pos_reward + speed_reward + coline_reward) * (1 + up_reward + spin_reward)
+    
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += up_reward
+    self.episode_sums["rew_speed"] += speed_reward
+    self.episode_sums["rew_coline"] += coline_reward
+    self.episode_sums["rew_spin"] += spin_reward
+
+    self.episode_sums["raw_dist"] += target_dist
+    self.episode_sums["raw_orient"] += ups[..., 2]
+
+def is_done(self) -> None:
+    ones = torch.ones_like(self.reset_buf)
+    die = torch.zeros_like(self.reset_buf)
+    die = torch.where(self.target_dist > 10.0, ones, die)
+
+    die = torch.where(self.root_positions[..., 2] < -2.0, ones, die)
+    die = torch.where(self.root_positions[..., 2] > 6.0, ones, die)
+
+    self.reset_buf[:] = torch.where(self.progress_buf >= self._max_episode_length - 1, ones, die) #END
+```
+2024-04-16 21:27:41.358 | INFO     | __main__:main:125 - Cleaned responses:['```python\ndef target_position_rot(self, root_positions, steps):\n    radius = 0.3\n    theta = torch.tensor(-2 * math.pi / 350 * steps)\n    center_z = 2.0\n\n    x = root_positions[:, 0]\n    z = root_positions[:, 2] - center_z\n    \n    scale = radius / torch.sqrt(x**2 + z**2)\n    \n    x1 = x * scale\n    z1 = z * scale\n    \n    new_points = torch.stack([x1, torch.zeros_like(x1), z1], dim=1)\n    \n    cos_theta = torch.cos(theta)\n    sin_theta = torch.sin(theta)\n    \n    x_rotated = new_points[:, 0] * cos_theta + new_points[:, 2] * sin_theta\n    z_rotated = -new_points[:, 0] * sin_theta + new_points[:, 2] * cos_theta\n    \n    rotated_points = torch.stack([x_rotated, new_points[:, 1], z_rotated], dim=1)\n    \n    return new_points, rotated_points\n\ndef calculate_metrics(self) -> None:\n    root_positions = self.root_pos - self._env_pos\n    root_quats = self.root_rot\n    root_vel = self.root_velocities[:, :3]\n    root_angvels = self.root_velocities[:, 3:]\n    # self.root_positions = root_positions  # This line is not needed as it is already defined above\n    \n    scaled_points, global_target_positions = self.target_position_rot(root_positions, 0)\n    rotated_points_list = []\n    for i in range(4):\n        _, rotated_points = self.target_position_rot(root_positions, i)\n        rotated_points_list.append(rotated_points)\n\n    next_step = sum(rotated_points_list) / 4\n\n    target_dist = torch.norm(root_positions - global_target_positions, dim=1)\n    self.target_dist = target_dist\n\n    pos_reward = torch.exp(-3 * target_dist)\n\n    rot_target = torch.tensor([0, 1, 0], device=self._device, dtype=torch.float32)\n    norm_rot_target = rot_target / torch.norm(rot_target, dim=1, keepdim=True)\n\n    ups = quat_axis(root_quats, 2)\n    norm_ups = ups / torch.norm(ups, dim=1, keepdim=True)\n    cos_angle = torch.sum(norm_ups * norm_rot_target, dim=1)\n    coeff_rot = 1 - cos_angle\n    up_reward = torch.exp(-3 * coeff_rot)\n\n    radius = 0.3\n    desired_speed = 2 * radius * math.pi / 3.5\n    current_speeds = torch.norm(root_vel, dim=1)\n    speed_diff = torch.abs(current_speeds - desired_speed)\n    speed_reward = torch.exp(-3 * speed_diff)\n\n    traj = next_step - scaled_points\n    norm_root_vel = root_vel / torch.norm(root_vel, dim=1, keepdim=True)\n    norm_traj = traj / torch.norm(traj, dim=1, keepdim=True)\n    dot_product = torch.sum(norm_root_vel * norm_traj, dim=1)\n    colinearity = 1 - dot_product\n    coline_reward = torch.exp(-3 * colinearity)\n\n    roll_angvel = root_angvels[:, 0]\n    yaw_angvel = root_angvels[:, 2]\n    desired_roll_angvel = 0.0\n    desired_yaw_angvel = 0.0\n    roll_penalty = torch.square(roll_angvel - desired_roll_angvel).sum(-1)\n    yaw_penalty = torch.square(yaw_angvel - desired_yaw_angvel).sum(-1)\n    y_angvel = root_angvels[:, 1]\n    desired_y_angvel = 2 * math.pi / 3.5\n    y_angvel_diff = y_angvel - desired_y_angvel\n    y_penalty = torch.square(y_angvel_diff).sum(-1)\n\n    combined_penalty = 0.1 * torch.exp(-1.0 * y_penalty) + 0.05 * torch.exp(-1.0 * roll_penalty) + 0.05 * torch.exp(-1.0 * yaw_penalty)\n\n    spin_reward = combined_penalty\n\n    self.rew_buf[:] = (pos_reward + speed_reward + coline_reward) * (1 + up_reward + spin_reward)\n    \n    self.episode_sums["rew_pos"] += pos_reward\n    self.episode_sums["rew_orient"] += up_reward\n    self.episode_sums["rew_speed"] += speed_reward\n    self.episode_sums["rew_coline"] += coline_reward\n    self.episode_sums["rew_spin"] += spin_reward\n\n    self.episode_sums["raw_dist"] += target_dist\n    self.episode_sums["raw_orient"] += ups[..., 2]\n\ndef is_done(self) -> None:\n    ones = torch.ones_like(self.reset_buf)\n    die = torch.zeros_like(self.reset_buf)\n    die = torch.where(self.target_dist > 10.0, ones, die)\n\n    die = torch.where(self.root_positions[..., 2] < -2.0, ones, die)\n    die = torch.where(self.root_positions[..., 2] > 6.0, ones, die)\n\n    self.reset_buf[:] = torch.where(self.progress_buf >= self._max_episode_length - 1, ones, die) #END\n```']
+2024-04-16 21:27:41.359 | INFO     | __main__:main:163 - Updated crazyflie.py with new functions saved to /home/simonwsy/SimpleEureka/results/2024-04-16 21:26:56.935700/updated_crazyflie.py
+2024-04-16 21:28:08.550 | INFO     | __main__:main:177 - Task complete, shutting down

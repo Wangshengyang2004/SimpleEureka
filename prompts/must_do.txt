@@ -37,3 +37,5 @@ See under what circumstance you will be heavily punished in {If you output anyth
         # This could involve repositioning the drone, resetting the target, etc.
 
 ```
+
+Also, I encourage you to not to make much comments after the code, we need to save tokens

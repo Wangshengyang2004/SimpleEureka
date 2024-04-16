@@ -1,4 +1,5 @@
-## Main Prompt
+2024-04-16 19:59:53.362 | INFO     | __main__:main:39 - Current working directory: /home/simonwsy/SimpleEureka
+2024-04-16 19:59:53.363 | INFO     | __main__:main:59 - Full Prompt: ## Main Prompt
 
 ### System
 
@@ -695,6 +696,74 @@ See under what circumstance you will be heavily punished in {If you output anyth
         # Reset task-specific elements and prepare for a new episode
         # This could involve repositioning the drone, resetting the target, etc.
 
-```
+```Add a sign for end of your code, when you finish the is_done part: #END
 
-Also, I encourage you to not to make much comments after the code, we need to save tokensAdd a sign for end of your code, when you finish the is_done part: #END
+2024-04-16 20:00:45.962 | INFO     | __main__:main:88 - ```python
+def calculate_metrics(self) -> None:
+    # Calculate distances and rotations for reward computation
+    target_dist = torch.norm(self.root_pos - self.target_positions, dim=1)
+    norm_ups = quat_axis(self.root_rot, 2) / torch.norm(quat_axis(self.root_rot, 2), dim=1, keepdim=True)
+    
+    # Positional reward based on distance to target
+    pos_reward = torch.exp(-3 * target_dist)
+    
+    # Orientation reward based on alignment with target
+    target_orientation = torch.tensor([0, 0, 1], device=self.device)
+    cos_angle = torch.sum(norm_ups * target_orientation, dim=1)
+    coeff_rot = 1 - cos_angle
+    ori_reward = torch.exp(-3 * coeff_rot)
+    
+    # Speed reward for maintaining the desired speed during flips
+    desired_speed = 2 * math.pi * 0.3 / 3.5  # Assuming a circle of radius 0.3 and a flip duration of 3.5s
+    current_speeds = torch.norm(self.root_vel[:, :3], dim=1)
+    speed_diff = torch.abs(current_speeds - desired_speed)
+    speed_reward = torch.exp(-3 * speed_diff)
+    
+    # Colinearity reward for maintaining the trajectory during flips
+    traj = self.next_step - self.scaled_points
+    norm_root_vel = self.root_vel[:, :3] / torch.norm(self.root_vel[:, :3], dim=1, keepdim=True)
+    norm_traj = traj / torch.norm(traj, dim=1, keepdim=True)
+    dot_product = torch.sum(norm_root_vel * norm_traj, dim=1)
+    colinearity = 1 - dot_product
+    coline_reward = torch.exp(-3 * colinearity)
+    
+    # Spin reward for maintaining the desired angular velocity around Y-axis
+    y_angvel = self.root_angvels[:, 1]
+    desired_y_angvel = 2 * math.pi / 3.5
+    y_angvel_diff = y_angvel - desired_y_angvel
+    y_penalty = torch.square(y_angvel_diff).sum(-1)
+    spin_reward = torch.exp(-1.0 * y_penalty)
+    
+    # Combined reward
+    self.rew_buf[:] = (pos_reward + speed_reward + coline_reward) * (1 + ori_reward + spin_reward)
+    
+    # Log individual reward components
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += ori_reward
+    self.episode_sums["rew_speed"] += speed_reward
+    self.episode_sums["rew_coline"] += coline_reward
+    self.episode_sums["rew_spin"] += spin_reward
+    
+    # Log raw information
+    self.episode_sums["raw_dist"] += target_dist
+    self.episode_sums["raw_orient"] += torch.sum(norm_ups * target_orientation, dim=1)
+    
+def is_done(self) -> None:
+    # Termination conditions based on distance, orientation, and episode length
+    die = torch.zeros_like(self.reset_buf)
+    
+    # Target distance check
+    die = torch.where(self.target_dist > 10.0, torch.ones_like(self.reset_buf), die)
+    
+    # Position check to avoid flying too high or too low
+    die = torch.where(self.root_positions[..., 2] < -2.0, torch.ones_like(self.reset_buf), die)
+    die = torch.where(self.root_positions[..., 2] > 6.0, torch.ones_like(self.reset_buf), die)
+    
+    # Episode length check
+    self.reset_buf[:] = torch.where(self.progress_buf >= self._max_episode_length - 1, torch.ones_like(self.reset_buf), die)
+    
+    # Update the done flags
+    self.done_buf = die
+
+#END
+```

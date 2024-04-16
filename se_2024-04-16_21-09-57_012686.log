@@ -1,4 +1,5 @@
-## Main Prompt
+2024-04-16 21:09:57.086 | INFO     | __main__:main:59 - Current working directory: /home/simonwsy/SimpleEureka
+2024-04-16 21:09:57.086 | INFO     | __main__:main:79 - Full Prompt: ## Main Prompt
 
 ### System
 
@@ -695,6 +696,5 @@ See under what circumstance you will be heavily punished in {If you output anyth
         # Reset task-specific elements and prepare for a new episode
         # This could involve repositioning the drone, resetting the target, etc.
 
-```
+```Add a sign for end of your code, when you finish the is_done part: #END
 
-Also, I encourage you to not to make much comments after the code, we need to save tokensAdd a sign for end of your code, when you finish the is_done part: #END
