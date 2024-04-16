@@ -1,3 +1,4 @@
 # Folders: outputs, data, models, logs, plots
 outputs/*
+results/*
 config.yaml
