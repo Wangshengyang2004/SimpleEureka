@@ -105,14 +105,44 @@ def main(cfg: DictConfig) -> None:
     functions = []
     for i in range(len(resp)):
         functions.append(re.findall(pattern=pattern, string=resp[i]))
+
+    # Assuming 'functions' is a list of function names extracted from the responses
+    functions_to_replace = [func for sublist in functions for func in sublist]  # Flatten the list if necessary
+
+    # Read the original crazyflie.py
+    with open(f"{EUREKA_ROOT_DIR}/input/crazyflie.py", "r") as file:
+        original_crazyflie_code = file.read()
+
+    # Function to remove existing definitions of functions
+    def remove_old_functions(code, function_names):
+        for func_name in function_names:
+            # Regex to find a function definition and remove it
+            # This regex assumes no nested definitions and is simplistic
+            pattern = rf"(def {re.escape(func_name)}\(.*?\):.*?)(?=\ndef|\Z)", re.DOTALL
+            code = re.sub(pattern, "", code, flags=re.DOTALL)
+        return code
+
+    # Remove the old function definitions
+    updated_code = remove_old_functions(original_crazyflie_code, functions_to_replace)
+
+    # Append the new function definitions (assuming 'resp' is a list of code snippets)
+    updated_code += "\n# New Code Starts Here\n" + "\n".join(resp)
+
+    # Save the updated script
+    updated_file_path = f"{EUREKA_ROOT_DIR}/input/updated_crazyflie.py"
+    with open(updated_file_path, "w") as file:
+        file.write(updated_code)
+
+    logger.info(f"Updated crazyflie.py with new functions saved to {updated_file_path}")
+
     logger.info(f"New Functions: {functions}")
-    subprocess.call(
-        args=f"cd {ISAAC_ROOT_DIR}; ~/.local/share/ov/pkg/isaac_sim-*/python.sh scripts/rlgames_train.py task=Crazyflie headless=true",
-        shell=True,
-        # use bin/bash to run the command
-        executable="/bin/bash",
-    )
-    # subprocess.call(['lxterminal -e  python3 try.py'], cwd='/home/pi/try', shell=True)
+    # subprocess.call(
+    #     args=f"cd {ISAAC_ROOT_DIR}; ~/.local/share/ov/pkg/isaac_sim-*/python.sh scripts/rlgames_train.py task=Crazyflie headless=true",
+    #     shell=True,
+    #     # use bin/bash to run the command
+    #     executable="/bin/bash",
+    # )
+
 
 if __name__ == "__main__":
     main()
