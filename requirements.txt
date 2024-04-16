@@ -1,2 +1,3 @@
 openai
 hydra-core
+loguru

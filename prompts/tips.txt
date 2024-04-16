@@ -1,6 +1,30 @@
 ### Tips
 
 - Don't forget to set your newly created variable with self.x
+- Since the whole pragram's operation is based on Tensor, please make sure that the code is compatible with TorchScript (e.g., use torch tensor instead of numpy array). 
+- Make sure any new tensor or variable you introduce is on the same device as the input tensors. 
+- For quaternion conversion, you should use the official functions:
+
+### Quaternion conversion Official function:
+
+```Python
+def gf_quat_to_tensor(orientation: typing.Union[Gf.Quatd, Gf.Quatf, Gf.Quaternion], device=None) -> torch.Tensor:
+    # Converts a pxr Quaternion type to a torch array (scalar first).
+
+def euler_angles_to_quats(euler_angles: torch.Tensor, degrees: bool = False, extrinsic: bool = True, device=None) -> torch.Tensor:
+    # Vectorized version of converting euler angles to quaternion (scalar first)
+
+def rot_matrices_to_quats(rotation_matrices: torch.Tensor, device=None) -> torch.Tensor:
+    # Vectorized version of converting rotation matrices to quaternions
+
+def rad2deg(radian_value: torch.Tensor, device=None) -> torch.Tensor:
+    # Converts radians to degrees and returns a tensor.
+
+def deg2rad(degree_value: float, device=None) -> torch.Tensor:
+    # Converts degrees to radians and returns a tensor.
+
+```
+
 - Make sure the Tensor is on the same device by .to(self.device) method
 - No need to comment on the code, it will save some tokens
 - If you create any new functions, then you must be sure to write the full function explicitly and return me the full code. You are responsible for writing runnable code without any omission 

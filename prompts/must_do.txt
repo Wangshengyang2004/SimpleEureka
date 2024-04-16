@@ -1,7 +1,39 @@
 ### What you must do:
 
+Return me the code of functions with few or no comments, you need to make sure you have completed all functions according to the requirement without any omission, meaning that you should output runnable codes and not just comments waiting for completion by human, such that the code can run without error.
+
 See under what circumstance you will be heavily punished in {If you output anything like the following, I will punish you and will not pay for that} sector.
+### If you output anything like the following, I will punish you and will not pay for that:
 
-For the first conversation, return me the full code with few or no comments, you need to make sure you have completed all functions in {Function explanation} without any omission, meaning that you should output runnable codes and not just comments waiting for completion by human, such that the code can run without error.
+```Python
+    # Problems: 1. You don't need to return this function at all; 2. Funtions are poorly written and contains not runable trash
+    def set_up_scene(self, scene):
+        # Example: Add Crazyflie and target to the scene
+        self.get_crazyflie()
+        self.get_target()
+        # Add more scene setup steps here
 
-For the following conversation, as long as your modification takes place in any parts of the code other than calculate_metric(), you should notify the function changed and the full function. Plus, You need to revise the code based on the human response.
+    def initialize_views(self, scene):
+        # Example: Initialize views for the Crazyflie and target for rendering or observation extraction
+        # This might be specific to how your simulation framework handles viewports and sensors
+
+    def get_crazyflie(self):
+        # Example: Instantiate Crazyflie drone within the environment
+        # Specific instantiation details depend on the simulation framework
+
+    def get_target(self):
+        # Example: Place a target object in the environment for the Crazyflie to interact with or move towards
+
+    def get_observations(self):
+        # Example: Collect and return current environmental observations relevant to the task
+        # Could include drone state, target position, obstacles, etc.
+
+    def pre_physics_step(self, actions):
+        # Process actions received from the neural network and apply to the drone
+        # This might involve converting action values to thrusts, rotations, etc.
+
+    def post_reset(self):
+        # Reset task-specific elements and prepare for a new episode
+        # This could involve repositioning the drone, resetting the target, etc.
+
+```
