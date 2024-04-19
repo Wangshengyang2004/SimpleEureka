@@ -4,14 +4,14 @@ from openai import OpenAI
 from loguru import logger
 import re
 import subprocess
-from pathlib import Path
 import os
 import datetime
 import re
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.extract_task_code import file_to_string
-from utils.simple_eureka import clean_response, remove_old_functions, final_cleaner
-now = datetime.datetime.now()
+from utils.simple_eureka import remove_old_functions, final_cleaner, add_imports
+now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logger.add(
     sink="./results/{time}/output.log",
     rotation="1 day",
@@ -25,12 +25,65 @@ EUREKA_ROOT_DIR = os.getcwd()
 RESULT_DIR = f"{EUREKA_ROOT_DIR}/results/{now}"
 
 # Clean the results directory
-shutil.rmtree(f"{EUREKA_ROOT_DIR}/results/{now}", ignore_errors=True)
-os.makedirs(f"{EUREKA_ROOT_DIR}/results/{now}", exist_ok=True)
+shutil.rmtree(RESULT_DIR, ignore_errors=True)
+os.makedirs(RESULT_DIR, exist_ok=True)
+
+def request_and_clean(cfg: DictConfig, full_prompt: str, original_crazyflie_code: str, task_id: int):
+    client = OpenAI(api_key=cfg.api.key, base_url=cfg.api.url)
+    messages = [
+        {"role": "system", "content": "Use English to respond to the following prompts on RL code optimization task."},
+        {"role": "user", "content": full_prompt}
+    ]
+
+    try:
+        completion = client.chat.completions.create(
+            model=cfg.api.model,
+            messages=messages,
+            temperature=cfg.api.temperature,
+            max_tokens=cfg.api.max_tokens,
+        )
+
+        response = completion.choices[0].message.content if completion.choices else None
+        if response:
+            logger.info(response)
+            with open(f"{EUREKA_ROOT_DIR}/results/{now}/response_{task_id}.txt", "w") as f:
+                f.write(response)
+
+            if "END" in response:
+                logger.success("Successfully parsed response with #END")
+            else:
+                logger.error("Error: #END not found in the response or no response received.")
+        else:
+            logger.error("No response received from the model.")
+
+    except Exception as e:
+        logger.error(f"API call failed: {e}")
+        response = None
+
+    if response:
+        resp = response.split("#END")[0]
+        pattern = r"def\s+(\w+)\s*\("
+        functions = sum([re.findall(pattern, response) for _ in resp], [])
+        updated_code = remove_old_functions(original_crazyflie_code, functions)
+        updated_code = add_imports(updated_code, resp)
+        new_code_snippets = "\n    ".join(resp).replace("\n", "\n    ")
+        updated_code += "\n    # New Code Starts Here\n    " + new_code_snippets
+        updated_code = final_cleaner(updated_code)
+        updated_file_path = f"{RESULT_DIR}/updated_crazyflie_{task_id}.py"
+
+        if os.path.exists(updated_file_path):
+            os.remove(updated_file_path)
+        with open(updated_file_path, "w") as file:
+            file.write(updated_code)
+        logger.info(f"Updated crazyflie.py with new functions saved to {updated_file_path}")
+        return updated_file_path, updated_code
+    return None, None
+                          
 
 # Define a type alias for the config object
 @hydra.main(config_path="./", config_name="config", version_base="1.1")
 def main(cfg: DictConfig) -> None:
+    #---------------------- SETUP ------------------#
     ISAAC_ROOT_DIR = cfg.gym.isaacsimpath
     PYTHON_PATH = cfg.gym.pythonpath
     TASK = cfg.gym.task
@@ -61,79 +114,25 @@ def main(cfg: DictConfig) -> None:
     )
     logger.info("Full Prompt: " + full_prompt)
 
+    with open(f"{EUREKA_ROOT_DIR}/input/crazyflie.py", "r") as file:
+        original_crazyflie_code = file.read()
+
     # Save the full prompt to a file under {EUREKA_ROOT_DIR}/results
     with open(f"{EUREKA_ROOT_DIR}/results/full_prompt.txt", "w") as f:
         f.write(full_prompt)
 
-    client = OpenAI(
-        api_key=cfg.api.key,
-        base_url=cfg.api.url,
-    )
-
-    content = full_prompt
-    messages = [
-        {
-            "role": "system",
-            "content": "Use English to repond to the following prompts on RL code optimization task.",
-        },
-        {"role": "user", "content": f"{content}"},
-    ]
-    resp = []
-    # Generate a response from the model using the full prompt until the #END sign
-    completion = client.chat.completions.create(
-        model=cfg.api.model,
-        messages=messages,
-        temperature=cfg.api.temperature,
-        max_tokens=cfg.api.max_tokens,
-        n=cfg.generation.number
-    )
-    if response := completion.choices[0].message.content:
-        resp.append(response)
-        logger.info(response)
-
-        # Save the response to a file under {EUREKA_ROOT_DIR}/results
-        with open(f"{EUREKA_ROOT_DIR}/results/{now}/response_{i}.txt", "w") as f:
-            f.write(response)
-        if re.search(r"#END", response):
-            logger.success("Sucessfully parse response with #END")
-    else:
-        logger.error("Error: #END not found in the response or no response received.")
-
-    # for i in range(len(resp)):
-    #     resp[i] = clean_response(resp[i])
-    logger.info(f"Cleaned responses:{resp}")
-    pattern = r"def\s+(\w+)\s*\("
-    functions = sum([re.findall(pattern, response) for response in resp], [])
-
-    with open(f"{EUREKA_ROOT_DIR}/input/crazyflie.py", "r") as file:
-        original_crazyflie_code = file.read()
-
-
-    updated_code = remove_old_functions(original_crazyflie_code, functions)
-
-    # Append new code with correct indentation
-    new_code_snippets = "\n    ".join(resp).replace("\n", "\n    ")
-    updated_code += "\n    # New Code Starts Here\n    " + new_code_snippets
-
-    
-    
-    updated_code = final_cleaner(updated_code)
-    updated_file_path = f"{RESULT_DIR}/updated_crazyflie.py"
-    # Rmove the updated crazyflie.py file if it exists
-    if os.path.exists(updated_file_path):
-        os.remove(updated_file_path)
-    with open(updated_file_path, "w") as file:
-        file.write(updated_code)
-    
-    logger.info(f"Updated crazyflie.py with new functions saved to {updated_file_path}")
-
-
+    #---------------------- REQUEST AND CLEAN Async------------------#
+    with ThreadPoolExecutor() as executor:
+        futures = [executor.submit(request_and_clean, cfg, full_prompt, original_crazyflie_code, task_id) for task_id in range(cfg.generation.number)]
+        results = [future.result() for future in as_completed(futures)]
+        updated_files = [result for result in results if result is not None]
+        file_paths = [file_path for file_path, _ in updated_files]
     # ---------------- RUN -----------------#
-    RUN = input("Do you want to run the updated code? (y/n): ")
-
+    RUN: bool = input("Do you want to run the updated code? (y/n): ")
+    i: int = input("Enter the index of the file you want to run: ")
     if RUN == "y":
         # Copy the updated crazyflie.py to the Isaac Sim directory
-        shutil.copyfile(updated_file_path, f"{ISAAC_ROOT_DIR}/tasks/crazyflie.py")
+        shutil.copyfile(file_paths[i], f"{ISAAC_ROOT_DIR}/tasks/crazyflie.py")
 
         if MULTIRUN:
             subprocess.call(

@@ -43,3 +43,17 @@ def replace_observation_buffer(code):
     # Replace the observation buffer with a placeholder
     code = re.sub(r"observation_buffer = np.zeros\(.*?\)", "observation_buffer = np.zeros(0)", code)
     return code
+
+def add_imports(original_code: str, generated_code: str):
+    # Compare the imported packages of generated code and Add the new imports to the top of the file
+
+    # Extract original imports
+    original_imports = re.findall(r'^\s*import .*$', original_code, flags=re.MULTILINE)
+    # Remove original imports
+    original_code = re.sub(r'^\s*import .*$', '', original_code, flags=re.MULTILINE)
+    # New imports
+    new_imports = re.findall(r'^\s*import .*$', generated_code, flags=re.MULTILINE)
+    # Use a set to avoid duplicates
+    imports = set(original_imports + new_imports)
+    imports = "\n".join(imports)
+    return imports + "\n" + original_code
