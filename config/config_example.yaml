@@ -1,7 +1,7 @@
 # isaacsim path, gym environment, python path
 # isaacsim path, gym environment, python path
 gym:
-  isaacsimpath : "H:\Omniverse\Library\isaac_sim-2023.1.1"
+  isaacsimpath : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1"
   task : "Crazyflie"
   pythonpath : "~/.local/share/ov/pkg/isaac_sim-*/python.sh"
   scriptpath : "scripts/rlgames_train.py"
