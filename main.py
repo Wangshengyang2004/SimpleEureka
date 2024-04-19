@@ -46,8 +46,12 @@ def request_and_clean(cfg: DictConfig, full_prompt: str, original_crazyflie_code
         response = completion.choices[0].message.content if completion.choices else None
         if response:
             logger.info(response)
-            with open(f"{EUREKA_ROOT_DIR}/results/{now}/response_{task_id}.txt", "w") as f:
-                f.write(response)
+            try:
+                with open(f"{EUREKA_ROOT_DIR}/results/{now}/response_{task_id}.txt", "w") as f:
+                    f.write(response)
+            except Exception as e:
+                logger.error(f"Failed to write to file: {e}")
+
 
             if "END" in response:
                 logger.success("Successfully parsed response with #END")
@@ -81,7 +85,7 @@ def request_and_clean(cfg: DictConfig, full_prompt: str, original_crazyflie_code
                           
 
 # Define a type alias for the config object
-@hydra.main(config_path="./config", config_name="config", version_base="1.1")
+@hydra.main(config_path="./config", config_name="config", version_base="1.2")
 def main(cfg: DictConfig) -> None:
     #---------------------- SETUP ------------------#
     ISAAC_ROOT_DIR = cfg.gym.isaacsimpath
@@ -129,7 +133,7 @@ def main(cfg: DictConfig) -> None:
         file_paths = [file_path for file_path, _ in updated_files]
     # ---------------- RUN -----------------#
     RUN: bool = input("Do you want to run the updated code? (y/n): ")
-    i: int = input("Enter the index of the file you want to run, from 0 to n, type -1 for running all one-by-one: ")
+    i: int = int(input("Enter the index of the file you want to run, from 0 to n, type -1 for running all one-by-one: "))
     if RUN == "y":
         if i == -1:
             for i in range(len(file_paths)):
@@ -141,14 +145,14 @@ def main(cfg: DictConfig) -> None:
                         args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multirun={MULTIRUN}",
                         shell=True,
                         # use bin/bash to run the command
-                        executable="/bin/bash",
+                        # executable="/bin/bash",
                     )
                 else:
                     subprocess.call(
                         args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS}",
                         shell=True,
                         # use bin/bash to run the command
-                        executable="/bin/bash",
+                        # executable="/bin/bash",
                     )
         else:
             # Copy the updated crazyflie.py to the Isaac Sim directory
@@ -159,14 +163,14 @@ def main(cfg: DictConfig) -> None:
                     args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multirun={MULTIRUN}",
                     shell=True,
                     # use bin/bash to run the command
-                    executable="/bin/bash",
+                    # executable="/bin/bash",
                 )
             else:
                 subprocess.call(
                     args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS}",
                     shell=True,
                     # use bin/bash to run the command
-                    executable="/bin/bash",
+                    # executable="/bin/bash",
                 )
         
     else:
