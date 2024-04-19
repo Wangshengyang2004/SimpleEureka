@@ -1,0 +1,12 @@
+# isaacsim path, gym environment, python path
+gym:
+  isaacsimpath : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs"
+  gymenv : "Crazyflie"
+  pythonpath : PYTHON_PATH
+
+# output path for simple eureka, output will contains the logs, checkpoints, and tensorboard logs
+output:
+  path : "./output"
+
+defaults:
+  - api: moonshot

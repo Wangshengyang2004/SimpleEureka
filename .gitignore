@@ -1,7 +1,7 @@
 # Folders: outputs, data, models, logs, plots
 outputs/*
 results/*
-config.yaml
+config/api/*
 
 # ---> Python
 # Byte-compiled / optimized / DLL files

@@ -81,7 +81,7 @@ def request_and_clean(cfg: DictConfig, full_prompt: str, original_crazyflie_code
                           
 
 # Define a type alias for the config object
-@hydra.main(config_path="./", config_name="config", version_base="1.1")
+@hydra.main(config_path="./config", config_name="config", version_base="1.1")
 def main(cfg: DictConfig) -> None:
     #---------------------- SETUP ------------------#
     ISAAC_ROOT_DIR = cfg.gym.isaacsimpath
@@ -129,25 +129,46 @@ def main(cfg: DictConfig) -> None:
         file_paths = [file_path for file_path, _ in updated_files]
     # ---------------- RUN -----------------#
     RUN: bool = input("Do you want to run the updated code? (y/n): ")
-    i: int = input("Enter the index of the file you want to run: ")
+    i: int = input("Enter the index of the file you want to run, from 0 to n, type -1 for running all one-by-one: ")
     if RUN == "y":
-        # Copy the updated crazyflie.py to the Isaac Sim directory
-        shutil.copyfile(file_paths[i], f"{ISAAC_ROOT_DIR}/tasks/crazyflie.py")
+        if i == -1:
+            for i in range(len(file_paths)):
+                # Copy the updated crazyflie.py to the Isaac Sim directory
+                shutil.copyfile(file_paths[i], f"{ISAAC_ROOT_DIR}/tasks/crazyflie.py")
 
-        if MULTIRUN:
-            subprocess.call(
-                args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multirun={MULTIRUN}",
-                shell=True,
-                # use bin/bash to run the command
-                executable="/bin/bash",
-            )
+                if MULTIRUN:
+                    subprocess.call(
+                        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multirun={MULTIRUN}",
+                        shell=True,
+                        # use bin/bash to run the command
+                        executable="/bin/bash",
+                    )
+                else:
+                    subprocess.call(
+                        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS}",
+                        shell=True,
+                        # use bin/bash to run the command
+                        executable="/bin/bash",
+                    )
         else:
-            subprocess.call(
-                args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS}",
-                shell=True,
-                # use bin/bash to run the command
-                executable="/bin/bash",
-            )
+            # Copy the updated crazyflie.py to the Isaac Sim directory
+            shutil.copyfile(file_paths[i], f"{ISAAC_ROOT_DIR}/tasks/crazyflie.py")
+
+            if MULTIRUN:
+                subprocess.call(
+                    args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multirun={MULTIRUN}",
+                    shell=True,
+                    # use bin/bash to run the command
+                    executable="/bin/bash",
+                )
+            else:
+                subprocess.call(
+                    args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS}",
+                    shell=True,
+                    # use bin/bash to run the command
+                    executable="/bin/bash",
+                )
+        
     else:
         pass
     logger.info("Task complete, shutting down")
