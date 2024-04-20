@@ -129,9 +129,10 @@ def main(cfg: DictConfig) -> None:
     ISAAC_ROOT_DIR = cfg.gym.isaacsimpath
     PYTHON_PATH = cfg.gym.pythonpath
     TASK = cfg.gym.task
+    TASK_PATH = cfg.output.overwrite
     SCRIPTS_DIR = cfg.gym.scriptpath
     HEADLESS = cfg.gym.headless
-    MULTIRUN = cfg.gym.multirun
+    MULTIGPU = cfg.gym.multigpu
     prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
 
     logger.info(f"Current working directory: {EUREKA_ROOT_DIR}")
@@ -186,11 +187,12 @@ def main(cfg: DictConfig) -> None:
         if i == -1:
             for i in range(len(file_paths)):
                 # Copy the updated crazyflie.py to the Isaac Sim directory
-                shutil.copyfile(file_paths[i], f"{ISAAC_ROOT_DIR}/tasks/crazyflie.py")
+                shutil.copyfile(file_paths[i], f"{TASK_PATH}")
 
-                if MULTIRUN:
+                if MULTIGPU:
+                    # PYTHON_PATH -m torch.distributed.run --nnodes=1 --nproc_per_node=2 scripts/rlgames_train.py headless=True task=Ant multi_gpu=True
                     subprocess.call(
-                        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multirun={MULTIRUN}",
+                        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu={MULTIGPU}",
                         shell=True,
                         # use bin/bash to run the command
                         # executable="/bin/bash",
@@ -204,11 +206,11 @@ def main(cfg: DictConfig) -> None:
                     )
         else:
             # Copy the updated crazyflie.py to the Isaac Sim directory
-            shutil.copyfile(file_paths[i], f"{ISAAC_ROOT_DIR}/tasks/crazyflie.py")
+            shutil.copyfile(file_paths[i], f"{TASK_PATH}")
 
-            if MULTIRUN:
+            if MULTIGPU:
                 subprocess.call(
-                    args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multirun={MULTIRUN}",
+                    args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu={MULTIGPU}",
                     shell=True,
                     # use bin/bash to run the command
                     # executable="/bin/bash",
