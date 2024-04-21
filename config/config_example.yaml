@@ -1,5 +1,4 @@
 # isaacsim path, gym environment, python path
-# isaacsim path, gym environment, python path
 gym:
   isaacsimpath : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1"
   task : "Crazyflie"
