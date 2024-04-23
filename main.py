@@ -10,7 +10,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.extract_task_code import file_to_string
 from utils.simple_eureka import remove_old_functions, final_cleaner, add_imports
-from utils.file_utils import clean_empty_folders, remove_folders_with_output_log
+# from utils.file_utils import clean_empty_folders, remove_folders_with_output_log
 import threading
 
 # Global lock for thread-safe file operations
@@ -19,8 +19,6 @@ now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logger = logger.opt(colors=True)
 logger.add(
     sink=f"./results/{now}/output.log",
-    rotation="1 day",
-    retention="7 days",
     enqueue=True,
     backtrace=True,
     diagnose=True,
