@@ -1,3 +1,9 @@
+"""
+Features will be added:
+1. Manage files and folders, meaning you can delete, download zipeed files
+2. Watch Training Videos
+3. Parse Tensorboard logs
+"""
 import os
 import streamlit as st
 

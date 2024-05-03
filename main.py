@@ -1,3 +1,35 @@
+"""
+Future Work:
+1. Clean up the code and add comments, make functions robust, learn from eureka
+2. Folder created during running will follow these structures:
+   - results
+        - 05-01_12-30-45
+            - logs
+                - output.log
+                - error.log
+            - response
+                - response_0.txt
+                - response_1.txt
+                - response_2.txt
+                - response_3.txt
+                - response_4.txt
+            - updated_code 
+                - crazyflie_0
+                    - updated_crazyflie_0.py
+                    - videos
+                        - video_0.mp4
+                        - video_1.mp4
+                        - video_2.mp4
+
+                - crazyflie_1
+                    - updated_crazyflie_1.py
+                    - videos
+                        - video_0.mp4
+                        - video_1.mp4
+                        - video_2.mp4
+
+            - full_prompt.txt
+"""
 import hydra
 from omegaconf import DictConfig
 from openai import OpenAI
