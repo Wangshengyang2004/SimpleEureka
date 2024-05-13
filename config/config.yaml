@@ -1,8 +1,8 @@
 # isaacsim path, gym environment, python path
 gym:
-  isaacsimpath : "/h/Omniverse/Library/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs"
+  isaacsimpath : "H:/Omniverse/Library/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs"
   task : "Crazyflie"
-  pythonpath : "/h/Omniverse/Library/isaac_sim-2023.1.1/python.bat"
+  pythonpath : "H:/Omniverse/Library/isaac_sim-2023.1.1/python.bat"
   scriptpath : "scripts/rlgames_train.py"
   headless : True
   extra : "--env-config-path ./config.yaml"
@@ -11,11 +11,12 @@ gym:
 # output path for simple eureka
 output:
   path : "./results/{date}"
-  overwrite : H:\\Omniverse\\Library\\isaac_sim-2023.1.1\\OmniIsaacGymEnvs\\omniisaacgymenvs\\tasks\\crazyflie.py
+  overwrite : "H:\\Omniverse\\Library\\isaac_sim-2023.1.1\\OmniIsaacGymEnvs\\omniisaacgymenvs\\tasks\\crazyflie.py"
 
 generation:
   number: 2
   epochs: 5
+  run_all: True
 
 defaults:
   - _self_

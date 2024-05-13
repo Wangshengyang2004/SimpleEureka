@@ -13,7 +13,7 @@ Future Work:
                 - response_2.txt
                 - response_3.txt
                 - response_4.txt
-            - updated_code 
+            - updated_code
                 - crazyflie_0
                     - updated_crazyflie_0.py
                     - videos
@@ -30,6 +30,7 @@ Future Work:
 
             - full_prompt.txt
 """
+
 import hydra
 from omegaconf import DictConfig
 from openai import OpenAI
@@ -42,9 +43,13 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.extract_task_code import file_to_string
 from utils.simple_eureka import remove_old_functions, final_cleaner, add_imports
+import select
 # from utils.file_utils import clean_empty_folders, remove_folders_with_output_log
 import threading
+import sys
+from utils.system import check_system_encoding
 
+platform = sys.platform
 # Global lock for thread-safe file operations
 file_lock = threading.Lock()
 now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -150,7 +155,82 @@ def process_response(cfg, response, original_crazyflie_code, task_id):
         return None, None
 
 
+def single_train_on_windows(
+    cfg, ISAAC_ROOT_DIR, PYTHON_PATH, SCRIPTS_DIR, TASK, HEADLESS
+):
+    driver = cfg.gym.isaacsimpath.split(":")[0]
+    encoding = "utf-8" if check_system_encoding() else "gbk"
+    p = subprocess.run(args=f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} ", shell=True,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding=encoding)
+    
+    logger.info(p.stdout)
+    if re.search("error running python", p.stdout):
+        raise logger.error(
+            "Running code in Omniverse is failed. There was an error running python"
+        )
+
+
+def multi_train_on_windows(
+    cfg, ISAAC_ROOT_DIR, PYTHON_PATH, SCRIPTS_DIR, TASK, HEADLESS
+):
+    driver = cfg.gym.isaacsimpath.split(":")[0]
+    encoding = "utf-8" if check_system_encoding() else "gbk"
+    p = subprocess.run(
+        args=f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu=True",
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        encoding=encoding,
+    )
+    logger.info(p.stdout)
+    # If There was an error running python contained in r
+    if re.search("error running python", p.stdout):
+        raise Exception(
+            "Running code in Omniverse is failed. There was an error running python"
+        )
+
+
+def single_train_on_linux(ISAAC_ROOT_DIR, PYTHON_PATH, SCRIPTS_DIR, TASK, HEADLESS):
+    p = subprocess.Popen(
+        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS}",
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        encoding="utf-8" if check_system_encoding() else "gbk",
+        # use bin/bash to run the command
+        # executable="/bin/bash",
+    )
+    r = p.communicate()[0]
+    logger.info(r)
+
+    # If There was an error running python contained in r
+    if re.search("error running python", r):
+        raise Exception(
+            "Running code in Omniverse is failed. There was an error running python"
+        )
+
+
+def multi_train_on_linux(ISAAC_ROOT_DIR, PYTHON_PATH, SCRIPTS_DIR, TASK, HEADLESS):
+    p = subprocess.Popen(
+        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu=True",
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        encoding="utf-8" if check_system_encoding() else "gbk",
+        # use bin/bash to run the command
+        # executable="/bin/bash",
+    )
+    r = p.communicate()[0]
+    logger.info(r)
+
+    # If There was an error running python contained in r
+    if re.search("error running python", r):
+        raise Exception(
+            "Running code in Omniverse is failed. There was an error running python"
+        )
+
+
 # Define a type alias for the config object
+@logger.catch
 @hydra.main(config_path="./config", config_name="config", version_base="1.2")
 def main(cfg: DictConfig) -> None:
     # ---------------------- SETUP ------------------#
@@ -204,58 +284,99 @@ def main(cfg: DictConfig) -> None:
         ]
         results = [future.result() for future in as_completed(futures)]
         updated_files = [result for result in results if result is not None]
-        file_paths = [file_path for file_path, _ in updated_files]
+        file_paths = sorted([file_path for file_path, _ in updated_files if file_path is not None])
+
     # ---------------- RUN -----------------#
     RUN: bool = input("Do you want to run the updated code? (y/n): ")
-    
+
     if RUN == "y":
         i: int = int(
-        input(
-            "Enter the index of the file you want to run, from 0 to n, type -1 for running all one-by-one: "
+            input(
+                "Enter the index of the file you want to run, from 0 to n, type -1 for running all one-by-one: "
             )
         )
         if i == -1:
-            for i in range(len(file_paths)):
+            for n in range(len(file_paths)):
                 # Copy the updated crazyflie.py to the Isaac Sim directory
-                shutil.copyfile(file_paths[i], f"{TASK_PATH}")
+                shutil.copyfile(file_paths[n], f"{TASK_PATH}")
 
                 if MULTIGPU:
-                    # PYTHON_PATH -m torch.distributed.run --nnodes=1 --nproc_per_node=2 scripts/rlgames_train.py headless=True task=Ant multi_gpu=True
-                    subprocess.call(
-                        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu={MULTIGPU}",
-                        shell=True,
-                        # use bin/bash to run the command
-                        # executable="/bin/bash",
-                    )
+                    try:
+                        if platform == "linux":
+                            multi_train_on_linux(
+                                ISAAC_ROOT_DIR, PYTHON_PATH, SCRIPTS_DIR, TASK, HEADLESS
+                            )
+                        else:
+                            multi_train_on_windows(
+                                cfg,
+                                ISAAC_ROOT_DIR,
+                                PYTHON_PATH,
+                                SCRIPTS_DIR,
+                                TASK,
+                                HEADLESS,
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to run the updated code: {e}")
                 else:
-                    subprocess.call(
-                        args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS}",
-                        shell=True,
-                        # use bin/bash to run the command
-                        # executable="/bin/bash",
-                    )
+                    try:
+                        if platform == "linux":
+                            single_train_on_linux(
+                                ISAAC_ROOT_DIR, PYTHON_PATH, SCRIPTS_DIR, TASK, HEADLESS
+                            )
+                        else:
+                            single_train_on_windows(
+                                cfg,
+                                ISAAC_ROOT_DIR,
+                                PYTHON_PATH,
+                                SCRIPTS_DIR,
+                                TASK,
+                                HEADLESS,
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to run the updated code: {e}")
+
         else:
             # Copy the updated crazyflie.py to the Isaac Sim directory
             shutil.copyfile(file_paths[i], f"{TASK_PATH}")
 
             if MULTIGPU:
-                subprocess.call(
-                    args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu={MULTIGPU}",
-                    shell=True,
-                    # use bin/bash to run the command
-                    # executable="/bin/bash",
-                )
+                try:
+                    if platform == "linux":
+                        multi_train_on_linux(
+                            ISAAC_ROOT_DIR, PYTHON_PATH, SCRIPTS_DIR, TASK, HEADLESS
+                        )
+                    else:
+                        multi_train_on_windows(
+                            cfg,
+                            ISAAC_ROOT_DIR,
+                            PYTHON_PATH,
+                            SCRIPTS_DIR,
+                            TASK,
+                            HEADLESS,
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to run the updated code: {e}")
             else:
-                subprocess.call(
-                    args=f"cd {ISAAC_ROOT_DIR}; {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS}",
-                    shell=True,
-                    # use bin/bash to run the command
-                    # executable="/bin/bash",
-                )
-
+                try:
+                    if platform == "linux":
+                        single_train_on_linux(
+                            ISAAC_ROOT_DIR, PYTHON_PATH, SCRIPTS_DIR, TASK, HEADLESS
+                        )
+                    else:
+                        single_train_on_windows(
+                            cfg,
+                            ISAAC_ROOT_DIR,
+                            PYTHON_PATH,
+                            SCRIPTS_DIR,
+                            TASK,
+                            HEADLESS,
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to run the updated code: {e}")
     else:
-        pass
-    logger.info("Task complete, shutting down")
+        logger.info("The code was not run. The user decided not to run the code.")
+
+    logger.info("All Task complete, program shutting down")
 
 
 if __name__ == "__main__":
