@@ -6,6 +6,7 @@ Features will be added:
 """
 import os
 import streamlit as st
+from io import BytesIO
 
 def app():
     st.title('Interactive File and Folder Viewer')
