@@ -1,0 +1,6 @@
+The Python environment is {task_obs_code_string}. Env Config is {env_config}
+You may refer to Human code difference as a runnable prototype for the task, however, if you think using this technique will ruin the diversity and randomness of the training, you may find another way out, I will pay you for your extra thought.{human_code_diff} 
+Write a reward function for the following task: {task_description}.
+Follow the output tips: {code_output_tip}
+And Must-do : {must_do}
+Finally: {final}

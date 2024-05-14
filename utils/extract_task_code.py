@@ -1,7 +1,7 @@
 import re 
 
 def file_to_string(filename):
-    with open(filename, 'r') as file:
+    with open(filename, 'r', errors="ignore") as file:
         return file.read()
     
 def extract_task_code(filename):

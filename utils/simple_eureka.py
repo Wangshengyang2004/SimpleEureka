@@ -1,4 +1,7 @@
+import os
 import re
+
+from loguru import logger
 
 def clean_response(text):
     # Remove import statements
@@ -44,9 +47,37 @@ def replace_observation_buffer(code):
     code = re.sub(r"observation_buffer = np.zeros\(.*?\)", "observation_buffer = np.zeros(0)", code)
     return code
 
+
+def extract_and_remove_dict(code_text):
+    # Regex pattern to capture and remove dictionary content after 'self.episode_sums ='
+    pattern = r"(self\.episode_sums\s*=\s*\{)([^}]+)(\})"
+    match = re.search(pattern, code_text, re.DOTALL)
+    if match:
+        # Extract dictionary content
+        dict_content = match.group(2)  # Only the content inside the braces
+        # Remove the dictionary from the code
+        modified_code = re.sub(pattern, '', code_text, flags=re.DOTALL)
+        return dict_content, modified_code
+    return None, code_text
+
+def inject_new_dict(partial_code, original_code):
+    # Extract the new dictionary content from the partial code and remove it
+    new_dict_content, partial_code_without_dict = extract_and_remove_dict(partial_code)
+    if new_dict_content is None:
+        return original_code, partial_code  # Return original if no new dict found
+    
+    # Pattern to find and replace the old dictionary in the original code
+    old_dict_pattern = r"(self\.episode_sums\s*=\s*\{)[^}]+(\})"
+    
+    # Replace the old dictionary content with the new one in the original code
+    new_original_code = re.sub(old_dict_pattern, r"\1" + new_dict_content + r"\2", original_code, flags=re.DOTALL)
+    
+    return new_original_code, partial_code_without_dict
+
+
+
 def add_imports(original_code: str, generated_code: str):
     # Compare the imported packages of generated code and Add the new imports to the top of the file
-
     # Extract original imports
     original_imports = re.findall(r'^\s*import .*$', original_code, flags=re.MULTILINE)
     # Remove original imports
@@ -57,3 +88,57 @@ def add_imports(original_code: str, generated_code: str):
     imports = set(original_imports + new_imports)
     imports = "\n".join(imports)
     return imports + "\n" + original_code
+
+def process_response(response, original_crazyflie_code):
+    if "END" in response:
+        logger.success("Successfully parsed response with #END")
+    else:
+        logger.error("Error: #END not found in the response or no response received.")
+        return None, None
+
+    # Extract code snippets up to the '#END' marker
+    resp = response.split("#END")[0]
+    original_crazyflie_code, resp = inject_new_dict(resp, original_crazyflie_code)
+    # Extract function names using regular expression
+    pattern = r"def\s+(\w+)\s*\("
+    functions = re.findall(pattern, resp)
+
+    # Remove old functions and add new ones
+    updated_code = remove_old_functions(original_crazyflie_code, functions)
+    updated_code = add_imports(updated_code, resp)
+    new_code_snippets = "\n".join(resp.split("\n"))
+    updated_code += "\n    # New Code Starts Here\n" + new_code_snippets
+    updated_code = final_cleaner(updated_code)
+
+    return updated_code
+
+if __name__ == "__main__":
+    # Example usage:
+    partial_code = """
+    # Import necessary libraries
+    import torch
+
+    self.episode_sums = {
+        "rew_pos": torch.zeros(),
+        "rew_orient": torch.zeros(),
+        "new_metric": torch.zeros(),  # This is a new entry
+    }
+
+    # Some additional unrelated code
+    def additional_function():
+        pass
+    """
+
+    original_code = """
+    class EpisodeMetrics:
+        def __init__(self):
+            self.episode_sums = {
+                "rew_pos": torch.zeros(),
+                "rew_orient": torch.zeros(),
+                "rew_effort": torch.zeros(),
+            }
+    """
+
+    updated_code, modified_partial_code = inject_new_dict(partial_code, original_code)
+    print("Updated Original Code:\n", updated_code)
+    print("Modified Partial Code:\n", modified_partial_code)

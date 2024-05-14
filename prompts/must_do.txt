@@ -5,7 +5,7 @@ Return me the code of functions with few or no comments, you need to make sure y
 See under what circumstance you will be heavily punished in {If you output anything like the following, I will punish you and will not pay for that} sector.
 ### If you output anything like the following, I will punish you and will not pay for that:
 
-```Python
+```python
     # Problems: 1. You don't need to return this function at all; 2. Funtions are poorly written and contains not runable trash
     def set_up_scene(self, scene):
         # Example: Add Crazyflie and target to the scene
@@ -37,5 +37,21 @@ See under what circumstance you will be heavily punished in {If you output anyth
         # This could involve repositioning the drone, resetting the target, etc.
 
 ```
-
+Also, the following cause error here: Reintroduce class
+ensure no "class" or "__init__" is included in your output
+```python
+ # New Code Starts Here
+    
+    import math
+    import numpy as np
+    import torch
+    from omni.isaac.core.utils.torch.rotations import *
+    EPS = 1e-6  # small constant to avoid divisions by 0 and log(0)
+    
+    
+    class CrazyflieTask(RLTask): 
+        # Function that you newly created for calculation
+```
+Another example:
+AttributeError: 'CrazyflieTask' object has no attribute 'target_dist'. It means you forget to link a variable with self.variable. Every time in your is_done function you use a variable, first is to ensure it is with self, second is that in previous functions you have already store it with self.
 Also, I encourage you to not to make much comments after the code, we need to save tokens

@@ -1,10 +1,11 @@
 # isaacsim path, gym environment, python path
 gym:
-  isaacsimpath : "H:/Omniverse/Library/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs"
+  omniisaacsimpathenv : "H:/Omniverse/Library/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs"
   task : "Crazyflie"
   pythonpath : "H:/Omniverse/Library/isaac_sim-2023.1.1/python.bat"
   scriptpath : "scripts/rlgames_train.py"
   headless : True
+  enable_recording : True
   extra : "--env-config-path ./config.yaml"
   multigpu : False
 
@@ -14,10 +15,14 @@ output:
   overwrite : "H:\\Omniverse\\Library\\isaac_sim-2023.1.1\\OmniIsaacGymEnvs\\omniisaacgymenvs\\tasks\\crazyflie.py"
 
 generation:
-  number: 2
+  number: 4
   epochs: 5
+  sample: 4
   run_all: True
 
+env:
+  success_keyword: "MAX EPOCHS NUM!"
+  failure_keyword: Traceback
 defaults:
   - _self_
   - api: moonshot
