@@ -5,13 +5,14 @@
 - Make sure any new tensor or variable you introduce is on the same device as the input tensors. 
 - Ensure that tensor shape matches during calculation, otherwise this will ruin the full code 
 - Make sure the Tensor is on the same device by .to(self.device) method
+- For new functions, don't forget to call it with self.function because it is a class method
 - If you create any new functions, then you must be sure to write the full function explicitly and return me the full code. You are responsible for writing runnable code without any omission 
 - You may find it helpful to normalize the reward to a fixed range by applying transformations like torch.exp to the overall reward or its components.
 -  If you choose to transform a reward component, then you must also introduce a temperature parameter inside the transformation function; this parameter must be a named variable in the reward function and it must not be an input variable. Each transformed reward component should have its own temperature variable. This is for tuning purpose
 - Make sure the type of each input variable is correctly specified; a float input variable should not be specified as torch.Tensor
 - Most importantly, the reward code's input variables must contain only attributes of the provided environment class definition (namely, variables that have prefix self.). Under no circumstance can you introduce new input variables.
 
-- For quaternion conversion, you should use the official functions:
+- For quaternion conversion, you should use the official functions, otherwise, it will cause error:
 ```Python
 def gf_quat_to_tensor(orientation: typing.Union[Gf.Quatd, Gf.Quatf, Gf.Quaternion], device=None) -> torch.Tensor:
     # Converts a pxr Quaternion type to a torch array (scalar first).
@@ -48,11 +49,11 @@ self.episode_sums = {
         "raw_spin": torch_zeros(),
     }
 
-def name_your_new_function_here(self, xxx) -> None:
+def name_your_new_function_here(xxx) -> None:
     pass
 
 def calculate_metrics(self) -> None:
-    self.new_function_here()
+    self.new_function_here(xxx, yyy, zzz) # Remember to add self.name_your_new_function_here. It's in a class
     ...
     root_positions = self.root_pos - self._env_pos
     root_quats = self.root_rot
@@ -63,6 +64,8 @@ def calculate_metrics(self) -> None:
     orient_reward = torch.clamp(ups[..., 2], min=0.0, max=1.0)
     effort = torch.square(self.actions).sum(-1)
     effort_reward = 0.05 * torch.exp(-0.1 * effort)
+    self.root_positions = root_positions
+    self.orient_z = ...
     ...
     spin = torch.square(root_angvels).sum(-1)
     spin_reward = 0.01 * torch.exp(-0.1 * spin)
@@ -78,6 +81,7 @@ def calculate_metrics(self) -> None:
     self.episode_sums["raw_spin"] += spin
 
 def is_done(self) -> None:
+    ... (Please design is_done condition according to the task)
     ones = torch.ones_like(self.reset_buf)
     die = torch.zeros_like(self.reset_buf)
     die = torch.where(self.target_dist > 5.0, ones, die)

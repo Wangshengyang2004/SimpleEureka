@@ -1,3 +1,3 @@
 ### Task explanation
 
-The quadcopter needs to do fancy behaviors in conditions where wind disturbances, motor asymmetry, and other real-world challenges. As an engineer, you will need to train it as agile as possible in Omniverse Isaac Gym, a platform that allows authentic simulation, to do a fast flipping in the air. For example, flying fast while flip twice and it will not lose control.
+The quadcopter should fly fast while flip twice and it will not lose control. Starting from the initial point, the drone will be encouraged to do fancy manuvering like combat airplane. Safety may not be the first to consider, but the drone need to perform at least one flip while flying around, and not dying.

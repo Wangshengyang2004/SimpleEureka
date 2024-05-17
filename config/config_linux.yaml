@@ -1,0 +1,27 @@
+gym:
+  omniisaacsimpathenv : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs"
+  task : "Crazyflie"
+  pythonpath : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh"
+  scriptpath : "scripts/rlgames_train.py"
+  headless : True
+  enable_recording : False
+  extra : "--env-config-path ./config.yaml"
+  multigpu : False
+
+# output path for simple eureka
+output:
+  path : "./results/{date}"
+  overwrite : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs/tasks/crazyflie.py"
+
+generation:
+  number: 10
+  epochs: 1
+  sample: 4
+  run_all: True
+
+env:
+  success_keyword: "MAX EPOCHS NUM!"
+  failure_keyword: Traceback
+defaults:
+  - _self_
+  - api: moonshot

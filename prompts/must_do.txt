@@ -52,6 +52,6 @@ ensure no "class" or "__init__" is included in your output
     class CrazyflieTask(RLTask): 
         # Function that you newly created for calculation
 ```
-Another example:
-AttributeError: 'CrazyflieTask' object has no attribute 'target_dist'. It means you forget to link a variable with self.variable. Every time in your is_done function you use a variable, first is to ensure it is with self, second is that in previous functions you have already store it with self.
+You should check whether your variables in is_done function is linked with self.variable, and you assign variable to the self.variable in the calculate_metrics part 
+If not: e.g. AttributeError: 'CrazyflieTask' object has no attribute 'target_dist'. It means you forget to link a variable with self.variable. Every time in your is_done function you use a variable, first is to ensure it is with self, second is that in previous functions you have already store it with self.
 Also, I encourage you to not to make much comments after the code, we need to save tokens

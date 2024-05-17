@@ -87,6 +87,7 @@ def add_imports(original_code: str, generated_code: str):
     # Use a set to avoid duplicates
     imports = set(original_imports + new_imports)
     imports = "\n".join(imports)
+    logger.debug("Merged imports:", imports)
     return imports + "\n" + original_code
 
 def process_response(response, original_crazyflie_code):

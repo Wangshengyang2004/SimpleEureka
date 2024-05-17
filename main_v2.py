@@ -45,7 +45,7 @@ os.makedirs(RESULT_DIR, exist_ok=True)
 
 # Define a type alias for the config object
 @logger.catch
-@hydra.main(config_path="./config", config_name="config", version_base="1.3")
+@hydra.main(config_path="./config", config_name="config_linux", version_base="1.3")
 def main(cfg: DictConfig) -> None:
     # ---------------------- SETUP ------------------#
     logger.info(
