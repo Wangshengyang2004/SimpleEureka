@@ -2,7 +2,7 @@
 outputs/*
 results/*
 config/api/*
-config/config.yaml
+# config/config.yaml
 # ---> Python
 # Byte-compiled / optimized / DLL files
 __pycache__/

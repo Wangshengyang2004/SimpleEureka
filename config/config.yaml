@@ -20,6 +20,10 @@ generation:
   sample: 10
   run_all: True
 
+task_analyzer:
+  enabled: True
+  model: api:moonshot
+
 env:
   success_keyword: "MAX EPOCHS NUM!"
   failure_keyword: Traceback
