@@ -1,6 +1,6 @@
 import os
 import re
-
+import openai
 from loguru import logger
 
 def clean_response(text):
@@ -112,6 +112,28 @@ def process_response(response, original_crazyflie_code):
     updated_code = final_cleaner(updated_code)
 
     return updated_code, new_code_snippets
+
+def task_description_optimizer(cfg, task_description):
+    messages = [
+        {
+            "role": "system",
+            "content": task_description
+        },
+        {
+            "role": "user",
+            "content": "Optimize the code for the given task description."
+        }
+    ]
+    client = openai.OpenAI(api_key=cfg.api.key, base_url=cfg.api.url)
+    response_cur = client.chat.completions.create(
+                        model=cfg.api.model,
+                        messages=messages,
+                        temperature=cfg.api.temperature,
+                        max_tokens=cfg.api.max_tokens,
+                        n=1
+                    )
+    response = response_cur.choices[0].message.content
+    return response
 
 if __name__ == "__main__":
     # Example usage:

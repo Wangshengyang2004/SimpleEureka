@@ -11,7 +11,7 @@ import shutil
 import numpy as np
 import openai
 from utils.extract_task_code import file_to_string
-from utils.simple_eureka import process_response
+from utils.simple_eureka import process_response, task_description_optimizer
 import json
 import sys
 from utils.system import check_system_encoding
@@ -70,6 +70,11 @@ def main(cfg: DictConfig) -> None:
     env_config = file_to_string(f"{EUREKA_ROOT_DIR}/input/crazyflie.yaml")
     must_do = file_to_string(f"{prompt_dir}/must_do.txt")
     final = "Add a sign for end of your code, when you finish the is_done part: #END\n"
+    
+    # New: task description optimization
+    if cfg.task_analyzer.enable:
+        task_description = task_description_optimizer(cfg, task_description)
+
     # Assemble the full prompt
     initial_user = initial_user.format(task_obs_code_string=task_obs_code_string, task_description=task_description, code_output_tip=code_output_tip, human_code_diff=human_code_diff, env_config=env_config, final = final, must_do=must_do)
     messages = [{"role": "system", "content": initial_system}, {"role": "user", "content": initial_user}]
@@ -90,15 +95,14 @@ def main(cfg: DictConfig) -> None:
     with open(f"{RESULT_DIR}/full_prompt.txt", "w") as f:
         f.write(full_prompt)
 
+    # Clean up the omniverse isaac sim environment's output directory
+    
+    # TO DO
     for iter in range(cfg.generation.epochs):
         BASE_DIR = f"{RESULT_DIR}/iter{iter}"
         # Make sub directories: code, reponses, tensorboard, and videos
         os.makedirs(BASE_DIR, exist_ok=True)
-        os.makedirs(f"{BASE_DIR}/code", exist_ok=True)
-        os.makedirs(f"{BASE_DIR}/responses", exist_ok=True)
-        os.makedirs(f"{BASE_DIR}/tensorboard", exist_ok=True)
-        os.makedirs(f"{BASE_DIR}/videos", exist_ok=True)
-
+        os.makedirs(f"{BASE_DIR}/{iter}", exist_ok=True)
 
         responses = []
         response_cur = None
@@ -148,9 +152,11 @@ def main(cfg: DictConfig) -> None:
         # for reponse in responses:
         #     logger.info(reponse.message.content)
         for response_id in range(cfg.generation.sample):
+            os.makedirs(f"{BASE_DIR}/{response_id}", exist_ok=True)
+            os.makedirs(f"{BASE_DIR}/{response_id}/checkpoint", exist_ok=True)
             response_cur = responses[response_id].message.content
             # Save the response to a file
-            with open(f"{BASE_DIR}/responses/response{response_id}.txt", "w", encoding="utf-8") as f:
+            with open(f"{BASE_DIR}/{response_id}/response.txt", "w", encoding="utf-8") as f:
                 f.write(response_cur)
             logger.info(f"Iteration {iter}: Processing Code Run {response_id}")
 
@@ -182,7 +188,7 @@ def main(cfg: DictConfig) -> None:
             # Implement our code here, skip for now
             code_string, reward_only_string = process_response(code_string, task_obs_code_string)
             # Save the new environment code when the output contains valid code string!
-            output_file = f"{BASE_DIR}/code/env_iter{iter}_response{response_id}.py"
+            output_file = f"{BASE_DIR}/{response_id}/{cfg.gym.task}_env_iter{iter}_response{response_id}.py" #env_iter{iter}_response{response_id}.py
             try:
                 with open(output_file, 'w') as file:
                     file.writelines(code_string + '\n')
@@ -190,12 +196,12 @@ def main(cfg: DictConfig) -> None:
                 logger.error(f"Error writing to file: {e}")
                 continue
 
-            with open(f"{BASE_DIR}/code/env_iter{iter}_response{response_id}_rewardonly.py", 'w') as file:
+            with open(f"{BASE_DIR}/{response_id}/{cfg.gym.task}_env_iter{iter}_response{response_id}_rewardonly.py", 'w') as file:
                 file.writelines(reward_only_string + '\n')
             
 
             shutil.copyfile(output_file, f"{TASK_PATH}")
-            std_path = f"{BASE_DIR}/code/env_iter{iter}_response{response_id}_train.log"
+            std_path = f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}_train.log"
             with open(std_path, 'w') as f:
                 
                 encoding = "utf-8" if check_system_encoding() else "gbk"
@@ -210,9 +216,9 @@ def main(cfg: DictConfig) -> None:
                     exit()
                 
                 if cfg.gym.enable_recording:
-                    os.makedirs(f"{BASE_DIR}/videos/{response_id}", exist_ok=True)
-                    command += f"enable_recording=True recording_dir={BASE_DIR}/videos/{response_id}"
-
+                    os.makedirs(f"{BASE_DIR}/{response_id}/videos/", exist_ok=True)
+                    command += f"enable_recording=True recording_dir={BASE_DIR}/{response_id}/videos/"
+                command += f"hydra.run.dir={BASE_DIR}/{response_id} checkpoint={BASE_DIR}/{response_id}/checkpoint/"
                 # if cfg.use_wandb:
                 #     command.append("--no-wandb")
                 logger.info(f"Command: {command}")
@@ -232,8 +238,8 @@ def main(cfg: DictConfig) -> None:
         
         for response_id, (code_run, rl_run) in enumerate(zip(code_runs, rl_runs)):
             rl_run.communicate()
-            rl_filepath = f"{BASE_DIR}/code/env_iter{iter}_response{response_id}_train.log"
-            code_paths.append(f"{BASE_DIR}/code/env_iter{iter}_response{response_id}.py")
+            rl_filepath = f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}_train.log"
+            code_paths.append(f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}.py")
             try:
                 with open(rl_filepath, 'r') as f:
                     stdout_str = f.read() 

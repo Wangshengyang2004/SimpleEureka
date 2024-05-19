@@ -6,9 +6,11 @@ gym:
   scriptpath : "scripts/rlgames_train.py"
   headless : True
   enable_recording : False
-  extra : "--env-config-path ./config.yaml"
+  extra : ""
   multigpu : False
-
+  max_iterations : 1000
+  checkpoint: ''
+  runs: .
 # output path for simple eureka
 output:
   path : "./results/{date}"
@@ -22,11 +24,12 @@ generation:
 
 task_analyzer:
   enabled: True
-  model: api:moonshot
+  model: ${api.moonshot}
 
 env:
   success_keyword: "MAX EPOCHS NUM!"
   failure_keyword: Traceback
+
 defaults:
   - _self_
   - api: moonshot
