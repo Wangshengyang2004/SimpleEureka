@@ -1,6 +1,7 @@
 import subprocess
 import os
 import json
+import time
 from loguru import logger
 
 from utils.extract_task_code import file_to_string
@@ -31,6 +32,7 @@ def filter_traceback(s):
 
 def block_until_training(rl_filepath, success_keyword, failure_keyword, log_status=False, iter_num=-1, response_id=-1):
     # Ensure that the RL training has started before moving on
+    start_time = time.time()
     while True:
         rl_log = file_to_string(rl_filepath)
         if success_keyword in rl_log or failure_keyword in rl_log:
@@ -38,6 +40,10 @@ def block_until_training(rl_filepath, success_keyword, failure_keyword, log_stat
                 logger.success(f"Iteration {iter_num}: Code Run {response_id} successfully training!")
             if log_status and failure_keyword in rl_log:
                 logger.error(f"Iteration {iter_num}: Code Run {response_id} execution error!")
+            break
+        if time.time() - start_time > 60 * 20:  # 1 hour timeout
+            logger.success(f"Iteration {iter_num}: Code Run {response_id} training too long!")
+            logger.error(f"Iteration {iter_num}: Code Run {response_id} training timeout!")
             break
 
 def construct_run_log(stdout_str):

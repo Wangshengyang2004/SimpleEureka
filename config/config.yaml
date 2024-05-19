@@ -5,7 +5,7 @@ gym:
   pythonpath : "H:/Omniverse/Library/isaac_sim-2023.1.1/python.bat"
   scriptpath : "scripts/rlgames_train.py"
   headless : True
-  enable_recording : True
+  enable_recording : False
   extra : "--env-config-path ./config.yaml"
   multigpu : False
 
@@ -15,9 +15,9 @@ output:
   overwrite : "H:\\Omniverse\\Library\\isaac_sim-2023.1.1\\OmniIsaacGymEnvs\\omniisaacgymenvs\\tasks\\crazyflie.py"
 
 generation:
-  number: 4
-  epochs: 5
-  sample: 4
+  chunk_size: 4 # Default: 4
+  epochs: 1
+  sample: 10
   run_all: True
 
 env:
@@ -26,3 +26,4 @@ env:
 defaults:
   - _self_
   - api: moonshot
+  - task: double_flipping

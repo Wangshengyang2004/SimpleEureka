@@ -87,7 +87,7 @@ def add_imports(original_code: str, generated_code: str):
     # Use a set to avoid duplicates
     imports = set(original_imports + new_imports)
     imports = "\n".join(imports)
-    logger.debug("Merged imports:", imports)
+    logger.debug(f"Merged imports:{imports}")
     return imports + "\n" + original_code
 
 def process_response(response, original_crazyflie_code):
@@ -111,7 +111,7 @@ def process_response(response, original_crazyflie_code):
     updated_code += "\n    # New Code Starts Here\n" + new_code_snippets
     updated_code = final_cleaner(updated_code)
 
-    return updated_code
+    return updated_code, new_code_snippets
 
 if __name__ == "__main__":
     # Example usage:

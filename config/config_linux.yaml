@@ -14,9 +14,9 @@ output:
   overwrite : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs/tasks/crazyflie.py"
 
 generation:
-  number: 10
+  chunk_size: 4 # Default: 4
   epochs: 1
-  sample: 4
+  sample: 10
   run_all: True
 
 env:

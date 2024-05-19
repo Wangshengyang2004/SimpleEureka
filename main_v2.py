@@ -12,9 +12,7 @@ import numpy as np
 import openai
 from utils.extract_task_code import file_to_string
 from utils.simple_eureka import process_response
-import json 
-# from utils.file_utils import clean_empty_folders, remove_folders_with_output_log
-import threading
+import json
 import sys
 from utils.system import check_system_encoding
 from utils.misc import *
@@ -22,8 +20,6 @@ from utils.extract_task_code import *
 from pathlib import Path
 
 platform = sys.platform
-# Global lock for thread-safe file operations
-file_lock = threading.Lock()
 now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logger = logger.opt(colors=True)
 logger.add(
@@ -45,7 +41,7 @@ os.makedirs(RESULT_DIR, exist_ok=True)
 
 # Define a type alias for the config object
 @logger.catch
-@hydra.main(config_path="./config", config_name="config_linux", version_base="1.3")
+@hydra.main(config_path="./config", config_name="config", version_base="1.3")
 def main(cfg: DictConfig) -> None:
     # ---------------------- SETUP ------------------#
     logger.info(
@@ -109,7 +105,7 @@ def main(cfg: DictConfig) -> None:
         total_samples = 0
         total_token = 0
         total_completion_token = 0
-        chunk_size = cfg.generation.sample
+        chunk_size: int = cfg.generation.chunk_size
         logger.info(f"Iteration {iter}: Generating {cfg.generation.sample} samples with {cfg.api.model}")
         client = openai.OpenAI(api_key=cfg.api.key, base_url=cfg.api.url)
         while True:
@@ -184,7 +180,7 @@ def main(cfg: DictConfig) -> None:
             code_runs.append(code_string)
 
             # Implement our code here, skip for now
-            code_string = process_response(code_string, task_obs_code_string)
+            code_string, reward_only_string = process_response(code_string, task_obs_code_string)
             # Save the new environment code when the output contains valid code string!
             output_file = f"{BASE_DIR}/code/env_iter{iter}_response{response_id}.py"
             try:
@@ -195,7 +191,7 @@ def main(cfg: DictConfig) -> None:
                 continue
 
             with open(f"{BASE_DIR}/code/env_iter{iter}_response{response_id}_rewardonly.py", 'w') as file:
-                file.writelines(code_string + '\n')
+                file.writelines(reward_only_string + '\n')
             
 
             shutil.copyfile(output_file, f"{TASK_PATH}")

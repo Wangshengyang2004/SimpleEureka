@@ -1,3 +1,1 @@
-### Task explanation
-
-The quadcopter should fly fast while flip twice and it will not lose control. Starting from the initial point, the drone will be encouraged to do fancy manuvering like combat airplane. Safety may not be the first to consider, but the drone need to perform at least one flip while flying around, and not dying.
+Task Description: A simple task: A Drone needs to perform a hovering task at point (2,2,2). It will perform 2m/s speed to go to the destination
