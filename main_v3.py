@@ -1,6 +1,5 @@
 import time
 import hydra
-from matplotlib import pyplot as plt
 from omegaconf import DictConfig
 from loguru import logger
 import re
@@ -10,20 +9,20 @@ import datetime
 import shutil
 import numpy as np
 import openai
+from utils.exceptions import CODE_EXECUTION_ERROR
 from utils.extract_task_code import file_to_string
-from utils.simple_eureka import process_response, task_description_optimizer
+from utils.simple_eureka import process_response
 import json
 import sys
 from utils.system import (
     check_system_encoding,
     clean_folder,
-    copy_folder,
     copy_folder_sub,
 )
-from utils.misc import *
-from utils.extract_task_code import *
+from utils.misc import block_until_training, construct_run_log 
 from pathlib import Path
-
+from utils.agent import Agent
+from utils.tensorboard_parser import tensorboard_parser
 platform = sys.platform
 now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logger = logger.opt(colors=True)
@@ -59,116 +58,17 @@ def main(cfg: DictConfig) -> None:
     SCRIPTS_DIR = cfg.gym.scriptpath
     HEADLESS = cfg.gym.headless
     ENABLE_RECORDING = cfg.gym.enable_recording
-    # Clean up the omniverse isaac sim environment's output directory
-    clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
-    # MULTIGPU = cfg.gym.multigpu
-    prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
-    logger.info(f"Using LLM: {cfg.api.model} with API Key: {cfg.api.key}")
-
-    def parse_api_doc(cfg):
-        """Return the API document of OmniIsaacSim and functions of Omniverse"""
-        path = f"{EUREKA_ROOT_DIR}/input/api_doc.txt"
-        
-    def critic_agent(cfg):
-        """
-        Set up the critic agent for the Eureka system
-        This agent will explain the task description in detail and
-        guide the reward function engineer on performance,
-        creativity, and robustness of the reward function"""
-        name = cfg.critic_agent.name
-        fellow_name = cfg.actor_agent.name
-        # Load prompt for critic agent
-        critic_prompt = file_to_string(f"{prompt_dir}/critic_prompt.txt")
-        task_description = file_to_string(f"{EUREKA_ROOT_DIR}/input/task_description.txt")
-        system_instruction = file_to_string(f"{prompt_dir}/system_instruction.txt")
-        template = critic_prompt.format(
-            name=name,
-            task_description=task_description, 
-            fellow_name=fellow_name
-        )
-        messages = [
-            {
-                "role": "system",
-                "content": system_instruction
-            },
-            {
-                "role": "user",
-                "content": template
-            }
-        ]
-        client = openai.OpenAI(api_key=cfg.api.key, base_url=cfg.api.url)
-        response_cur = client.chat.completions.create(
-                            model=cfg.api.model,
-                            messages=messages,
-                            temperature=cfg.api.temperature,
-                            max_tokens=cfg.api.max_tokens,
-                            n=1
-                        )
-        return response_cur.choices[0].message.content
     
-    def actor_agent(cfg):
-        """
-        Set up the actor agent for the Eureka system
-        This agent will generate the reward function for the task description
-        provided by the critic agent"""
-        name = cfg.actor_agent.name
-        # Load prompt for actor agent
-        actor_prompt = file_to_string(f"{prompt_dir}/actor_prompt.txt")
-        template = actor_prompt.format(name=name)
-        messages = [
-            {
-                "role": "system",
-                "content": template
-            },
-            {
-                "role": "user",
-                "content": "Optimize the code for the given task description."
-            }
-        ]
-        client = openai.OpenAI(api_key=cfg.api.key, base_url=cfg.api.url)
-        response_cur = client.chat.completions.create(
-                            model=cfg.api.model,
-                            messages=messages,
-                            temperature=cfg.api.temperature,
-                            max_tokens=cfg.api.max_tokens,
-                            n=1
-                        )
-        return response_cur.choices[0].message.content
-    # Load text from the prompt file
-    initial_system = file_to_string(f"{prompt_dir}/initial_system.txt")
-    code_output_tip = file_to_string(f"{prompt_dir}/code_output_tip.txt")
+    MULTIGPU = cfg.gym.multigpu
+    prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
+    logger.debug(f"Using LLM: {cfg.api.model} with API Key: {cfg.api.key}")
     code_feedback = file_to_string(f"{prompt_dir}/code_feedback.txt")
-    initial_user = file_to_string(f"{prompt_dir}/initial_user.txt")
+    task_obs_code_string = file_to_string(f"{prompt_dir}/{TASK}.py")
     policy_feedback = file_to_string(f"{prompt_dir}/policy_feedback.txt")
     execution_error_feedback = file_to_string(
         f"{prompt_dir}/execution_error_feedback.txt"
     )
-    task_description = file_to_string(f"{EUREKA_ROOT_DIR}/input/task_description.txt")
-    human_code_diff = file_to_string(f"{EUREKA_ROOT_DIR}/input/crazyflie_human_diff.py")
-    task_obs_code_string = file_to_string(f"{EUREKA_ROOT_DIR}/input/crazyflie.py")
-    env_config = file_to_string(f"{EUREKA_ROOT_DIR}/input/crazyflie.yaml")
-    must_do = file_to_string(f"{prompt_dir}/must_do.txt")
-    final = "Add a sign for end of your code, when you finish the is_done part: #END\n"
-
-    # New: task description optimization
-    if cfg.task_analyzer.enable:
-        task_description = task_description_optimizer(cfg, task_description)
-
-    # Assemble the full prompt
-    initial_user = initial_user.format(
-        task_obs_code_string=task_obs_code_string,
-        task_description=task_description,
-        code_output_tip=code_output_tip,
-        human_code_diff=human_code_diff,
-        env_config=env_config,
-        final=final,
-        must_do=must_do,
-    )
-    messages = [
-        {"role": "system", "content": initial_system},
-        {"role": "user", "content": initial_user},
-    ]
-    full_prompt = initial_system + initial_user
+    code_output_tip = file_to_string(f"{prompt_dir}/code_output_tip.txt")
     DUMMY_FAILURE = -10000.0
     max_successes = []
     max_successes_reward_correlation = []
@@ -177,13 +77,18 @@ def main(cfg: DictConfig) -> None:
     max_success_overall = DUMMY_FAILURE
     max_success_reward_correlation_overall = DUMMY_FAILURE
     max_reward_code_path = None
-
+    clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
+    
+    # ---------------------- MESSAGE Assemble------------------#
+    actor_prompt = Agent(cfg=cfg)
+    messages = actor_prompt.message()
+    full_prompt = messages[0]["content"] + messages[1]["content"]
     logger.info("Full Prompt: " + full_prompt)
-
     # Save the full prompt to a file under {EUREKA_ROOT_DIR}/results
     with open(f"{RESULT_DIR}/full_prompt.txt", "w") as f:
         f.write(full_prompt)
 
+    # ---------------------- Evolution ------------------#
     for iter in range(cfg.generation.epochs):
         BASE_DIR = f"{RESULT_DIR}/iter{iter}"
         # Make sub directories: code, reponses, tensorboard, and videos
@@ -243,8 +148,7 @@ def main(cfg: DictConfig) -> None:
 
         code_runs = []
         rl_runs = []
-        # for reponse in responses:
-        #     logger.info(reponse.message.content)
+
         for response_id in range(cfg.generation.sample):
             # Clean up the omniverse isaac sim environment's output directory
             clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
@@ -309,16 +213,24 @@ def main(cfg: DictConfig) -> None:
 
                 if platform == "win32":
                     driver = cfg.gym.omniisaacsimpathenv.split(":")[0]
-                    command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} "
+                    if MULTIGPU:
+                        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multigpu={MULTIGPU} "
+                    else:
+                        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} "
                 elif platform == "linux":
-                    command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} "
+                    if MULTIGPU:
+                        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multigpu={MULTIGPU} "
+                    else:
+                        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} "
                 else:
                     logger.error("Unsupported platform!")
                     exit()
 
-                if cfg.gym.enable_recording:
+                if ENABLE_RECORDING and not MULTIGPU:
                     os.makedirs(f"{BASE_DIR}/{response_id}/videos/", exist_ok=True)
                     command += f"enable_recording=True recording_dir={BASE_DIR}/{response_id}/videos/"
+                else:
+                    logger.info("Recording is disabled! Either enable recording or use multi-gpu training!")
                 command += f"hydra.run.dir={BASE_DIR}/{response_id} checkpoint={BASE_DIR}/{response_id}/checkpoint/"
                 # if cfg.use_wandb:
                 #     command.append("--no-wandb")
@@ -343,7 +255,7 @@ def main(cfg: DictConfig) -> None:
         code_feedbacks = []
         contents = []
         successes = []
-        reward_correlations = []
+        # reward_correlations = []
         code_paths = []
 
         exec_success = False
@@ -357,71 +269,27 @@ def main(cfg: DictConfig) -> None:
             try:
                 with open(rl_filepath, "r") as f:
                     stdout_str = f.read()
-            except Exception as e:
-                logger.error(f"Error reading RL output file: {e}")
+                    construct_run_log(stdout_str)
+            except CODE_EXECUTION_ERROR as e:
+                logger.error(f"Failed run log construction due to: {e}")
                 content = execution_error_feedback.format(
-                    traceback_msg="Code Run cannot be executed due to function signature error! Please re-write an entirely new reward function!"
+                    traceback_msg="Code Run cannot be executed due to function value error! Please fix it!"
                 )
                 content += code_output_tip
                 contents.append(content)
                 successes.append(DUMMY_FAILURE)
-                reward_correlations.append(DUMMY_FAILURE)
+                # reward_correlations.append(DUMMY_FAILURE)
                 continue
+            except Exception as e:
+                logger.error(f"Other error occurred during run log construction!:{e}")
 
             content = ""
-            traceback_msg = filter_traceback(stdout_str)
-
-            if traceback_msg == "":
-                # If RL execution has no error, provide policy statistics feedback
-                exec_success = True
-                run_log = construct_run_log(stdout_str)
-
-                train_iterations = np.array(run_log["iterations/"]).shape[0]
-                epoch_freq = max(int(train_iterations // 10), 1)
-
-                epochs_per_log = 10
-                content += policy_feedback.format(
-                    epoch_freq=epochs_per_log * epoch_freq
-                )
-
-                # Compute Correlation between Human-Engineered and GPT Rewards
-                if "gt_reward" in run_log and "gpt_reward" in run_log:
-                    gt_reward = np.array(run_log["gt_reward"])
-                    gpt_reward = np.array(run_log["gpt_reward"])
-                    reward_correlation = np.corrcoef(gt_reward, gpt_reward)[0, 1]
-                    reward_correlations.append(reward_correlation)
-
-                # Add reward components log to the feedback
-                for metric in sorted(run_log.keys()):
-                    if "/" not in metric:
-                        metric_cur = [
-                            "{:.2f}".format(x) for x in run_log[metric][::epoch_freq]
-                        ]
-                        metric_cur_max = max(run_log[metric])
-                        metric_cur_mean = sum(run_log[metric]) / len(run_log[metric])
-                        if "consecutive_successes" == metric:
-                            successes.append(metric_cur_max)
-                        metric_cur_min = min(run_log[metric])
-                        if metric != "gt_reward" and metric != "gpt_reward":
-                            if metric != "consecutive_successes":
-                                metric_name = metric
-                            else:
-                                metric_name = "task score"
-                            content += f"{metric_name}: {metric_cur}, Max: {metric_cur_max:.2f}, Mean: {metric_cur_mean:.2f}, Min: {metric_cur_min:.2f} \n"
-                        else:
-                            # Provide ground-truth score when success rate not applicable
-                            if "consecutive_successes" not in run_log:
-                                content += f"ground-truth score: {metric_cur}, Max: {metric_cur_max:.2f}, Mean: {metric_cur_mean:.2f}, Min: {metric_cur_min:.2f} \n"
-                code_feedbacks.append(code_feedback)
-                content += code_feedback
-            else:
-                # Otherwise, provide execution traceback error feedback
-                successes.append(DUMMY_FAILURE)
-                reward_correlations.append(DUMMY_FAILURE)
-                content += execution_error_feedback.format(traceback_msg=traceback_msg)
-
-            content += code_output_tip
+            run_log = construct_run_log(stdout_str)
+            tensorboard_log = tensorboard_parser(log_path=rl_filepath, save=True)
+            content.join(run_log)
             contents.append(content)
+            successes.append(100)
+            exec_success = True
 
         # Repeat the iteration if all code generation failed
         if not exec_success and cfg.generation.sample != 1:
@@ -439,18 +307,18 @@ def main(cfg: DictConfig) -> None:
         best_content = contents[best_sample_idx]
 
         max_success = successes[best_sample_idx]
-        max_success_reward_correlation = reward_correlations[best_sample_idx]
+        # max_success_reward_correlation = reward_correlations[best_sample_idx]
         execute_rate = np.sum(np.array(successes) >= 0.0) / cfg.generation.sample
 
         # Update the best Eureka Output
         if max_success > max_success_overall:
             max_success_overall = max_success
-            max_success_reward_correlation_overall = max_success_reward_correlation
+            # max_success_reward_correlation_overall = max_success_reward_correlation
             max_reward_code_path = code_paths[best_sample_idx]
 
         execute_rates.append(execute_rate)
         max_successes.append(max_success)
-        max_successes_reward_correlation.append(max_success_reward_correlation)
+        # max_successes_reward_correlation.append(max_success_reward_correlation)
         best_code_paths.append(code_paths[best_sample_idx])
 
         logger.info(
