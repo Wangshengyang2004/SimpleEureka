@@ -23,7 +23,7 @@
 ## License:
 
 ## Author:
-**Shengyang Wang**, UG 2026, Duke Kunshan University
+**Shengyang Wang**, Undergraduate Student, Duke Kunshan University
 ## Instructor:
 - **Bing Luo**, Assistant Professor, Duke Kunshan University
 - **Wenli Xiao**, Graduate School, Carnegie Mellon University
