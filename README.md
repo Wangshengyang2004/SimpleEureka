@@ -25,5 +25,5 @@
 ## Author:
 **Shengyang Wang**, UG 2026, Duke Kunshan University
 ## Instructor:
-**Bing Luo**, Assistant Professor, Duke Kunshan University
-**Wenli Xiao**, Graduate School, Carnegie Mellon University
+- **Bing Luo**, Assistant Professor, Duke Kunshan University
+- **Wenli Xiao**, Graduate School, Carnegie Mellon University
