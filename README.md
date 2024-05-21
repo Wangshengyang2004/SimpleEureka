@@ -21,7 +21,7 @@
    or python main_v2.py api="gpt-4o"
 
 ## License:
-
+Will be added later
 ## Author:
 **Shengyang Wang**, Undergraduate Student, Duke Kunshan University
 ## Instructor:
