@@ -11,6 +11,7 @@ gym:
   max_iterations : 1000
   checkpoint: ''
   runs: .
+
 # output path for simple eureka
 output:
   path : "./results/{date}"
@@ -22,10 +23,16 @@ generation:
   sample: 10
   run_all: True
 
-task_analyzer:
-  enabled: True
-  model: ${api.moonshot}
+critic_agent:
+  enable: True
+  name: "Alice"
+  duty: "product manager"
 
+actor_agent:
+  enable: True
+  name: "Bob"
+  duty: "reward function designer"
+  
 env:
   success_keyword: "MAX EPOCHS NUM!"
   failure_keyword: Traceback

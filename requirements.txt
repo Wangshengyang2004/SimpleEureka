@@ -2,3 +2,7 @@ openai
 hydra-core
 loguru
 streamlit
+matplotlib
+pandas
+numpy
+tensorboard
