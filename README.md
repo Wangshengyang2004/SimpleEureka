@@ -1,4 +1,9 @@
 # Simple Eureka: Running LLM-RL generation pipeline on Omniverse Isaac Sim
+
+## Note:
+- This repo is under heavy development right now, versions maybe updated weekly, and API may change drastically
+- Currently, code is heavily borrowed from NVIDIA Eureka, as we haven't made a full adaptation yet. Later, code will be more neat and tidy
+
 ## Features:
 - Maintain the same logic as NVIDIA Eureka
 - Support Linux and Windows thanks to Nvidia Omniverse
@@ -14,3 +19,11 @@
    pip install -r requirements.txt
    python main_v2.py
    or python main_v2.py api="gpt-4o"
+
+## License:
+
+## Author:
+**Shengyang Wang**, UG 2026, Duke Kunshan University
+## Instructor:
+**Bing Luo**, Assistant Professor, Duke Kunshan University
+**Wenli Xiao**, Graduate School, Carnegie Mellon University
