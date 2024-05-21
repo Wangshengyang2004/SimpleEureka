@@ -5,8 +5,8 @@ import json
 import time
 from loguru import logger
 
-from extract_task_code import file_to_string
-from exceptions import CODE_EXECUTION_ERROR
+from utils.extract_task_code import file_to_string
+from utils.exceptions import CODE_EXECUTION_VALUEERROR, CODE_EXECUTION_SYNTAXERROR
 def set_freest_gpu():
     freest_gpu = get_freest_gpu()
     os.environ['CUDA_VISIBLE_DEVICES'] = str(freest_gpu)
@@ -46,6 +46,9 @@ def block_until_training(rl_filepath, success_keyword, failure_keyword, log_stat
                 logger.error(f"Iteration {iter_num}: Code Run {response_id} execution error!")
             break
         
+        if "Simulation App Shutting Down" in rl_log:
+            logger.success(f"Code Indeed Run, but Unknown error make it stop earilier: Iteration {iter_num}: Code Run {response_id} simulation app shutting down!")
+            break
         current_mod_time = os.path.getmtime(rl_filepath)
         if current_mod_time > initial_mod_time:
             last_update_time = time.time()
@@ -61,10 +64,13 @@ def construct_run_log(stdout_str):
     run_log = {}
     lines = stdout_str.split('\n')
     # Detect Key errors
-    run_log['KeyError'] = filter_traceback(stdout_str)
-    if run_log['KeyError']:
+    run_log['Error'] = filter_traceback(stdout_str)
+    if "SyntaxError: invalid syntax" in stdout_str:
         run_log['Success'] = False
-        raise CODE_EXECUTION_ERROR(run_log['KeyError'])
+        raise CODE_EXECUTION_SYNTAXERROR(run_log['Error'])
+    elif "ValueError" in stdout_str:
+        run_log['Success'] = False
+        raise CODE_EXECUTION_VALUEERROR(run_log['Error'])
     else:
         run_log['KeyError'] = None
         run_log['Success'] = True
@@ -79,5 +85,9 @@ if __name__ == "__main__":
         stdout_str = file_to_string(r'H:\Omniverse\Library\isaac_sim-2023.1.1\SimpleEureka\results\2024-05-18_21-09-07\iter0\code\env_iter0_response7_train.log')
         run_log = construct_run_log(stdout_str)
         print(run_log)
-    except CODE_EXECUTION_ERROR as e:
+    except CODE_EXECUTION_SYNTAXERROR as e:
+        print(e)
+    except CODE_EXECUTION_VALUEERROR as e:
+        print(e)
+    except Exception as e:
         print(e)

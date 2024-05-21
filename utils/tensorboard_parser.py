@@ -113,7 +113,7 @@ class tensorboard_parser:
     
 if __name__ == '__main__':
     # Create an instance of the tensorboard_parser class
-    path = r"H:\Omniverse\Library\isaac_sim-2023.1.1\OmniIsaacGymEnvs\omniisaacgymenvs\runs\Crazyflie\summaries\events.out.tfevents.1715672304.DESKTOP-P1IIRLN"
+    path = r"H:\Omniverse\Library\isaac_sim-2023.1.1\SimpleEureka\results\2024-05-21_23-51-53\iter0\1\summaries\events.out.tfevents.1716307000.DESKTOP-P1IIRLN"
     tb_parser = tensorboard_parser(path,save=True, plot=True)
     # Parse the log files and plot the scalar metrics
     tb_parser.parse_and_plot()

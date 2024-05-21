@@ -20,7 +20,7 @@ output:
 generation:
   chunk_size: 4 # Default: 4
   epochs: 1
-  sample: 10
+  sample: 15
   run_all: True
 
 critic_agent:

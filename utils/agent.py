@@ -1,5 +1,5 @@
 import hydra
-from misc import file_to_string
+from utils.misc import file_to_string
 import openai
 import os
 from loguru import logger
@@ -8,7 +8,6 @@ class Agent:
     def __init__(self, cfg):
         self.cfg = cfg
         self.EUREKA_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.TASK = cfg.gym.task
         self.actor_dir = f"{self.EUREKA_ROOT_DIR}/prompts/actor"
         self.critic_dir = f"{self.EUREKA_ROOT_DIR}/prompts/critic"
     
@@ -25,9 +24,9 @@ class Agent:
             fellow_name = cfg.actor_agent.name
             # Load prompt for critic agent
             critic_prompt = file_to_string(f"{self.critic_dir}/user.txt")
-            task_description = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/task_description.txt")
+            task_description: str = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/task_description.txt")
             system_instruction = file_to_string(f"{self.critic_dir}/system.txt")
-            template = critic_prompt.format(
+            system_instruction = system_instruction.format(
                 name=name,
                 task_description=task_description, 
                 fellow_name=fellow_name
@@ -39,9 +38,10 @@ class Agent:
                 },
                 {
                     "role": "user",
-                    "content": template
+                    "content": critic_prompt
                 }
             ]
+            logger.info(f"Critic Agent: {system_instruction} \n {critic_prompt}")
             client = openai.OpenAI(api_key=cfg.api.key, base_url=cfg.api.url)
             response_cur = client.chat.completions.create(
                                 model=cfg.api.model,
@@ -51,6 +51,7 @@ class Agent:
                                 n=1
                             )
             self.detailed_task_description: str = response_cur.choices[0].message.content
+            logger.info(f"Critic Agent: {self.detailed_task_description}")
             logger.info(f"\n Prompt Token Cost: {response_cur.usage.prompt_tokens} \n Response Token Cost: {response_cur.usage.completion_tokens}")
 
     def actor_agent(self):
@@ -58,6 +59,8 @@ class Agent:
         # Load text from the prompt file, Assemble prompt for actor agent
         """
         initial_system = file_to_string(f"{self.actor_dir}/initial_system.txt")
+        api_doc = file_to_string(f"{self.actor_dir}/api_doc.txt")
+        external_source = file_to_string(f"{self.actor_dir}/external_source.txt")
         code_output_tip = file_to_string(f"{self.actor_dir}/code_output_tip.txt")
         initial_user = file_to_string(f"{self.actor_dir}/initial_user.txt")
         human_code_diff = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/crazyflie_human_diff.py")
@@ -69,12 +72,14 @@ class Agent:
         # Assemble the full prompt
         initial_user = initial_user.format(
             task_obs_code_string=task_obs_code_string,
-            task_description=self.detailed_task_description,
+            optimized_task_description=self.detailed_task_description,
             code_output_tip=code_output_tip,
             human_code_diff=human_code_diff,
             env_config=env_config,
             final=final,
             must_do=must_do,
+            api_doc=api_doc,
+            external_source=external_source
         )
 
         self.messages = [
@@ -92,6 +97,8 @@ class Agent:
          """
          Assemble the full prompt
          """
+         self.critic_agent()
+         self.actor_agent()
          return self.messages
 
 @hydra.main(config_path="../config", config_name="config", version_base="1.3")

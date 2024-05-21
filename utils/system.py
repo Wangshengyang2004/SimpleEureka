@@ -30,12 +30,9 @@ def copy_folder(src, dest):
         logger.info(e)
     
 def copy_folder_sub(src, dest):
-    """Copy all files under src to dest."""
-    for file in os.listdir(src):
-        file_path = os.path.join(src, file)
-        try:
-            if os.path.isfile(file_path):
-                shutil.copy(file_path, dest)
-        except Exception as e:
-            logger.info(e)
-    logger.info(f"Folder copied: {src} -> {dest}")
+    """Copy all files and subdirectories from src to dest."""
+    try:
+        shutil.copytree(src, dest, dirs_exist_ok=True)
+        logger.info(f"Folder copied: {src} -> {dest}")
+    except Exception as e:
+        logger.error(f"Error copying folder: {e}")

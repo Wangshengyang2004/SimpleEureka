@@ -1,53 +1,20 @@
-### Tips
-- No need to comment on the code, it will save some tokens
-- Don't forget to set your newly created variable with self.x, or forget to set the self.variable = variable. Very import, otherwise I will deduct your payment
+- Since you are not allowed to modify other parts of the code, you can recreate the varibles and constants in the beginning of the calculate_metrics function, e.g., your target_position is no longer (0,0,2) initialized in the `set_target` but (4,4,4) to be created in `calculate_metrics`. Please make sure the tensor shape is match with the original one
+- You must make sure the self.xxx varible is defined, e.g., self.target_position or self.orient_z need be created in the calculate_metrics function. Your newly defined functions need to include self because they're the class method, plus, when calling them elsewhere, a self.your_new_function is necessary for Python
 - Since the whole pragram's operation is based on Tensor, please make sure that the code is compatible with TorchScript (e.g., use torch tensor instead of numpy array). 
 - Make sure any new tensor or variable you introduce is on the same device as the input tensors. 
-- Ensure that tensor shape matches during calculation, otherwise this will ruin the full code 
-- Make sure the Tensor is on the same device by .to(self.device) method
-- For new functions, don't forget to call it with self.function because it is a class method
-- If you create any new functions, then you must be sure to write the full function explicitly and return me the full code. You are responsible for writing runnable code without any omission 
+- Ensure that tensor shape matches during calculation
+- If you create any new functions, then you must be sure to write the full function explicitly and return me the full code without any omission 
 - You may find it helpful to normalize the reward to a fixed range by applying transformations like torch.exp to the overall reward or its components.
--  If you choose to transform a reward component, then you must also introduce a temperature parameter inside the transformation function; this parameter must be a named variable in the reward function and it must not be an input variable. Each transformed reward component should have its own temperature variable. This is for tuning purpose
+- If you choose to transform a reward component, then you must also introduce a temperature parameter inside the transformation function; this parameter must be a named variable in the reward function and it must not be an input variable. Each transformed reward component should have its own temperature variable. This is for tuning purpose
 - Make sure the type of each input variable is correctly specified; a float input variable should not be specified as torch.Tensor
 - Most importantly, the reward code's input variables must contain only attributes of the provided environment class definition (namely, variables that have prefix self.). Under no circumstance can you introduce new input variables.
 
-- For quaternion conversion, you should use the official functions, otherwise, it will cause error:
+Your output format. (just for the skeleton)
+
 ```Python
-def gf_quat_to_tensor(orientation: typing.Union[Gf.Quatd, Gf.Quatf, Gf.Quaternion], device=None) -> torch.Tensor:
-    # Converts a pxr Quaternion type to a torch array (scalar first).
-
-def euler_angles_to_quats(euler_angles: torch.Tensor, degrees: bool = False, extrinsic: bool = True, device=None) -> torch.Tensor:
-    # Vectorized version of converting euler angles to quaternion (scalar first)
-
-def rot_matrices_to_quats(rotation_matrices: torch.Tensor, device=None) -> torch.Tensor:
-    # Vectorized version of converting rotation matrices to quaternions
-
-def rad2deg(radian_value: torch.Tensor, device=None) -> torch.Tensor:
-    # Converts radians to degrees and returns a tensor.
-
-def deg2rad(degree_value: float, device=None) -> torch.Tensor:
-    # Converts degrees to radians and returns a tensor.
-```
-
-Follow the structure below for output can bring you extra money, just the structure (function names and input/output) for you to refer, be creative of the detailed coding:
-"
-```python
 # New Code Starts Here
 import math
 import xxx
-
-self.episode_sums = {
-        "rew_pos": torch_zeros(),
-        "rew_orient": torch_zeros(),
-        "rew_effort": torch_zeros(),
-        "rew_spin": torch_zeros(),
-        ... (more if you need)
-        "raw_dist": torch_zeros(),
-        "raw_orient": torch_zeros(),
-        "raw_effort": torch_zeros(),
-        "raw_spin": torch_zeros(),
-    }
 
 def name_your_new_function_here(xxx) -> None:
     pass
@@ -56,14 +23,9 @@ def calculate_metrics(self) -> None:
     self.new_function_here(xxx, yyy, zzz) # Remember to add self.name_your_new_function_here. It's in a class
     ...
     root_positions = self.root_pos - self._env_pos
-    root_quats = self.root_rot
-    root_angvels = self.root_velocities[:, 3:]
+    ...
     target_dist = torch.sqrt(torch.square(self.target_positions - root_positions).sum(-1))
-    pos_reward = 1.0 / (1.0 + 0.1 * target_dist)
-    ups = quat_axis(root_quats, 2)
-    orient_reward = torch.clamp(ups[..., 2], min=0.0, max=1.0)
-    effort = torch.square(self.actions).sum(-1)
-    effort_reward = 0.05 * torch.exp(-0.1 * effort)
+    ...
     self.root_positions = root_positions
     self.orient_z = ...
     ...
@@ -80,16 +42,6 @@ def calculate_metrics(self) -> None:
     self.episode_sums["raw_effort"] += effort
     self.episode_sums["raw_spin"] += spin
 
-def is_done(self) -> None:
-    ... (Please design is_done condition according to the task)
-    ones = torch.ones_like(self.reset_buf)
-    die = torch.zeros_like(self.reset_buf)
-    die = torch.where(self.target_dist > 5.0, ones, die)
-    die = torch.where(self.root_positions[..., 2] < 0.5, ones, die)
-    die = torch.where(self.root_positions[..., 2] > 5.0, ones, die)
-    die = torch.where(self.orient_z < 0.0, ones, die)
-    self.reset_buf[:] = torch.where(self.progress_buf >= self._max_episode_length - 1, ones, die)
+#END
 
 ```
-#END
-"

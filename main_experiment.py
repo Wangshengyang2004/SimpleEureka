@@ -7,9 +7,7 @@ import subprocess
 import os
 import datetime
 import shutil
-import numpy as np
 import openai
-from utils.exceptions import CODE_EXECUTION_SYNTAXERROR, CODE_EXECUTION_VALUEERROR
 from utils.extract_task_code import file_to_string
 from utils.simple_eureka import process_response
 import json
@@ -19,7 +17,7 @@ from utils.system import (
     clean_folder,
     copy_folder_sub,
 )
-from utils.misc import block_until_training, construct_run_log 
+from utils.misc import block_until_training
 from pathlib import Path
 from utils.agent import Agent
 from utils.tensorboard_parser import tensorboard_parser
@@ -251,141 +249,8 @@ def main(cfg: DictConfig) -> None:
             )
             rl_runs.append(process)
 
-        # Gather RL training results and construct reward reflection
-        code_feedbacks = []
-        contents = []
-        successes = []
-        # reward_correlations = []
-        code_paths = []
-
-        exec_success = False
-
         for response_id, (code_run, rl_run) in enumerate(zip(code_runs, rl_runs)):
             rl_run.communicate()
-            rl_filepath = f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}_train.log"
-            code_paths.append(
-                f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}.py"
-            )
-            try:
-                with open(rl_filepath, "r") as f:
-                    stdout_str = f.read()
-                    construct_run_log(stdout_str)
-            except CODE_EXECUTION_SYNTAXERROR as e:
-                logger.error(f"Failed run log construction due to: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg="Code Run cannot be executed due to function syntax error! Please fix it!"
-                )
-                content += code_output_tip
-                contents.append(content)
-                successes.append(DUMMY_FAILURE)
-                # reward_correlations.append(DUMMY_FAILURE)
-                continue
-            except CODE_EXECUTION_VALUEERROR as e:
-                logger.error(f"Failed run log construction due to: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg="Code Run cannot be executed due to function value error! Please fix it!"
-                )
-                content += code_output_tip
-                contents.append(content)
-                successes.append(DUMMY_FAILURE)
-                # reward_correlations.append(DUMMY_FAILURE)
-                continue
-
-            except Exception as e:
-                logger.error(f"Other error occurred during run log construction!:{e}")
-                content = execution_error_feedback.format(
-                    traceback_msg="Code Run cannot be executed due to unknown error! Please fix it!"
-                )
-                content += code_output_tip
-                contents.append(content)
-                successes.append(DUMMY_FAILURE)
-                # reward_correlations.append(DUMMY_FAILURE)
-                continue
-
-
-            content = ""
-            run_log = construct_run_log(stdout_str)
-            tensorboard_log = tensorboard_parser(log_path=rl_filepath, save=True)
-            content.join(run_log)
-            contents.append(content)
-            successes.append(100)
-            exec_success = True
-
-        # Repeat the iteration if all code generation failed
-        if not exec_success and cfg.generation.sample != 1:
-            execute_rates.append(0.0)
-            max_successes.append(DUMMY_FAILURE)
-            max_successes_reward_correlation.append(DUMMY_FAILURE)
-            best_code_paths.append(None)
-            logger.info(
-                "All code generation failed! Repeat this iteration from the current message checkpoint!"
-            )
-            continue
-
-        # Select the best code sample based on the success rate
-        best_sample_idx = np.argmax(np.array(successes))
-        best_content = contents[best_sample_idx]
-
-        max_success = successes[best_sample_idx]
-        # max_success_reward_correlation = reward_correlations[best_sample_idx]
-        execute_rate = np.sum(np.array(successes) >= 0.0) / cfg.generation.sample
-
-        # Update the best Eureka Output
-        if max_success > max_success_overall:
-            max_success_overall = max_success
-            # max_success_reward_correlation_overall = max_success_reward_correlation
-            max_reward_code_path = code_paths[best_sample_idx]
-
-        execute_rates.append(execute_rate)
-        max_successes.append(max_success)
-        # max_successes_reward_correlation.append(max_success_reward_correlation)
-        best_code_paths.append(code_paths[best_sample_idx])
-
-        logger.info(
-            f"Iteration {iter}: Max Success: {max_success}, Execute Rate: {execute_rate}"
-        )
-        logger.info(f"Iteration {iter}: Best Generation ID: {best_sample_idx}")
-        logger.info(
-            f"Iteration {iter}: GPT Output Content:\n"
-            + responses[best_sample_idx].message.content
-            + "\n"
-        )
-        logger.info(f"Iteration {iter}: User Content:\n" + best_content + "\n")
-
-        if len(messages) == 2:
-            messages += [
-                {
-                    "role": "assistant",
-                    "content": responses[best_sample_idx].message.content,
-                }
-            ]
-            messages += [{"role": "user", "content": best_content}]
-        else:
-            assert len(messages) == 4
-            messages[-2] = {
-                "role": "assistant",
-                "content": responses[best_sample_idx].message.content,
-            }
-            messages[-1] = {"role": "user", "content": best_content}
-
-        # Save dictionary as JSON file
-        with open("messages.json", "w") as file:
-            json.dump(messages, file, indent=4)
-
-    if max_reward_code_path is None:
-        logger.error("All iterations of code generation failed, aborting...")
-        logger.error(
-            "Please double check the output env_iter*_response*.txt files for repeating errors!"
-        )
-        exit()
-    logger.info(
-        f"Task: {cfg.gym.task}, Max Training Success {max_success_overall}, Correlation {max_success_reward_correlation_overall}, Best Reward Code Path: {max_reward_code_path}"
-    )
-
-    best_reward = file_to_string(max_reward_code_path)
-    with open(output_file.replace(".py", ".txt"), "w") as file:
-        file.writelines(best_reward + "\n")
-
 
 
 if __name__ == "__main__":
