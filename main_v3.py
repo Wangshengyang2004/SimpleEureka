@@ -9,7 +9,7 @@ import datetime
 import shutil
 import numpy as np
 import openai
-from utils.exceptions import CODE_EXECUTION_ERROR
+from utils.exceptions import CODE_EXECUTION_SYNTAXERROR, CODE_EXECUTION_VALUEERROR
 from utils.extract_task_code import file_to_string
 from utils.simple_eureka import process_response
 import json
@@ -63,12 +63,12 @@ def main(cfg: DictConfig) -> None:
     prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
     logger.debug(f"Using LLM: {cfg.api.model} with API Key: {cfg.api.key}")
     code_feedback = file_to_string(f"{prompt_dir}/code_feedback.txt")
-    task_obs_code_string = file_to_string(f"{prompt_dir}/{TASK}.py")
+    task_obs_code_string = file_to_string(f"{EUREKA_ROOT_DIR}/input/{TASK}.py")
     policy_feedback = file_to_string(f"{prompt_dir}/policy_feedback.txt")
     execution_error_feedback = file_to_string(
         f"{prompt_dir}/execution_error_feedback.txt"
     )
-    code_output_tip = file_to_string(f"{prompt_dir}/code_output_tip.txt")
+    code_output_tip = file_to_string(f"{prompt_dir}/actor/code_output_tip.txt")
     DUMMY_FAILURE = -10000.0
     max_successes = []
     max_successes_reward_correlation = []
@@ -137,7 +137,7 @@ def main(cfg: DictConfig) -> None:
         if cfg.generation.sample == 1:
             logger.info(
                 f"Iteration {iter}: GPT Output:\n "
-                + responses[0]["message"]["content"]
+                + responses[0].message.content
                 + "\n"
             )
 
@@ -192,7 +192,7 @@ def main(cfg: DictConfig) -> None:
                 code_string, task_obs_code_string
             )
             # Save the new environment code when the output contains valid code string!
-            output_file = f"{BASE_DIR}/{response_id}/{cfg.gym.task}_env_iter{iter}_response{response_id}.py"  # env_iter{iter}_response{response_id}.py
+            output_file = f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}.py"  # env_iter{iter}_response{response_id}.py
             try:
                 with open(output_file, "w") as file:
                     file.writelines(code_string + "\n")
@@ -201,7 +201,7 @@ def main(cfg: DictConfig) -> None:
                 continue
 
             with open(
-                f"{BASE_DIR}/{response_id}/{cfg.gym.task}_env_iter{iter}_response{response_id}_rewardonly.py",
+                f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}_rewardonly.py",
                 "w",
             ) as file:
                 file.writelines(reward_only_string + "\n")
@@ -231,7 +231,7 @@ def main(cfg: DictConfig) -> None:
                     command += f"enable_recording=True recording_dir={BASE_DIR}/{response_id}/videos/"
                 else:
                     logger.info("Recording is disabled! Either enable recording or use multi-gpu training!")
-                command += f"hydra.run.dir={BASE_DIR}/{response_id} checkpoint={BASE_DIR}/{response_id}/checkpoint/"
+                # command += f"hydra.run.dir={BASE_DIR}/{response_id} checkpoint={BASE_DIR}/{response_id}/checkpoint/"
                 # if cfg.use_wandb:
                 #     command.append("--no-wandb")
                 logger.info(f"Command: {command}")
@@ -270,7 +270,17 @@ def main(cfg: DictConfig) -> None:
                 with open(rl_filepath, "r") as f:
                     stdout_str = f.read()
                     construct_run_log(stdout_str)
-            except CODE_EXECUTION_ERROR as e:
+            except CODE_EXECUTION_SYNTAXERROR as e:
+                logger.error(f"Failed run log construction due to: {e}")
+                content = execution_error_feedback.format(
+                    traceback_msg="Code Run cannot be executed due to function syntax error! Please fix it!"
+                )
+                content += code_output_tip
+                contents.append(content)
+                successes.append(DUMMY_FAILURE)
+                # reward_correlations.append(DUMMY_FAILURE)
+                continue
+            except CODE_EXECUTION_VALUEERROR as e:
                 logger.error(f"Failed run log construction due to: {e}")
                 content = execution_error_feedback.format(
                     traceback_msg="Code Run cannot be executed due to function value error! Please fix it!"
@@ -280,8 +290,18 @@ def main(cfg: DictConfig) -> None:
                 successes.append(DUMMY_FAILURE)
                 # reward_correlations.append(DUMMY_FAILURE)
                 continue
+
             except Exception as e:
                 logger.error(f"Other error occurred during run log construction!:{e}")
+                content = execution_error_feedback.format(
+                    traceback_msg="Code Run cannot be executed due to unknown error! Please fix it!"
+                )
+                content += code_output_tip
+                contents.append(content)
+                successes.append(DUMMY_FAILURE)
+                # reward_correlations.append(DUMMY_FAILURE)
+                continue
+
 
             content = ""
             run_log = construct_run_log(stdout_str)
@@ -322,12 +342,12 @@ def main(cfg: DictConfig) -> None:
         best_code_paths.append(code_paths[best_sample_idx])
 
         logger.info(
-            f"Iteration {iter}: Max Success: {max_success}, Execute Rate: {execute_rate}, Max Success Reward Correlation: {max_success_reward_correlation}"
+            f"Iteration {iter}: Max Success: {max_success}, Execute Rate: {execute_rate}"
         )
         logger.info(f"Iteration {iter}: Best Generation ID: {best_sample_idx}")
         logger.info(
             f"Iteration {iter}: GPT Output Content:\n"
-            + responses[best_sample_idx]["message"]["content"]
+            + responses[best_sample_idx].message.content
             + "\n"
         )
         logger.info(f"Iteration {iter}: User Content:\n" + best_content + "\n")
@@ -336,7 +356,7 @@ def main(cfg: DictConfig) -> None:
             messages += [
                 {
                     "role": "assistant",
-                    "content": responses[best_sample_idx]["message"]["content"],
+                    "content": responses[best_sample_idx].message.content,
                 }
             ]
             messages += [{"role": "user", "content": best_content}]
@@ -344,7 +364,7 @@ def main(cfg: DictConfig) -> None:
             assert len(messages) == 4
             messages[-2] = {
                 "role": "assistant",
-                "content": responses[best_sample_idx]["message"]["content"],
+                "content": responses[best_sample_idx].message.content,
             }
             messages[-1] = {"role": "user", "content": best_content}
 
@@ -353,8 +373,8 @@ def main(cfg: DictConfig) -> None:
             json.dump(messages, file, indent=4)
 
     if max_reward_code_path is None:
-        logger.info("All iterations of code generation failed, aborting...")
-        logger.info(
+        logger.error("All iterations of code generation failed, aborting...")
+        logger.error(
             "Please double check the output env_iter*_response*.txt files for repeating errors!"
         )
         exit()
@@ -363,12 +383,9 @@ def main(cfg: DictConfig) -> None:
     )
 
     best_reward = file_to_string(max_reward_code_path)
-    with open(output_file, "w") as file:
+    with open(output_file.replace(".py", ".txt"), "w") as file:
         file.writelines(best_reward + "\n")
 
-    # Get run directory of best-performing policy
-    with open(max_reward_code_path.replace(".py", ".txt"), "r") as file:
-        lines = file.readlines()
 
 
 if __name__ == "__main__":

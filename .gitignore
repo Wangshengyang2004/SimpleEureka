@@ -4,6 +4,7 @@ results/*
 config/api/*
 notebooks/plot/*
 events.out*
+backup/*
 # config/config.yaml
 # ---> Python
 # Byte-compiled / optimized / DLL files
