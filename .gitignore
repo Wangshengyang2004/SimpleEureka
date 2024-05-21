@@ -6,6 +6,8 @@ notebooks/plot/*
 events.out*
 backup/*
 *.png
+experiment*
+*.json
 # config/config.yaml
 # ---> Python
 # Byte-compiled / optimized / DLL files
