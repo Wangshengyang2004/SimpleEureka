@@ -3,21 +3,23 @@ from tensorboard.backend.event_processing import event_accumulator
 import numpy as np
 import pandas as pd
 import os
-
+from loguru import logger
 class tensorboard_parser:
-    def __init__(self, log_path, save=False, plot=False):
+    def __init__(self, log_path, save=False, plot=False, dir_path='./plot', name='all_metrics'):
         self.log_path = log_path
         self.ea = event_accumulator.EventAccumulator(log_path)
         self.ea.Reload()
         self.scalar_keys = self.ea.scalars.Keys()
-        self.stats_df = pd.DataFrame(columns=['Metric', 'Mean', 'Max', 'Min', 'Std Dev', 'Variance'])
+        self.stats_df = pd.DataFrame(columns=['Metric', 'Mean', 'Max', 'Min', 'Std Dev', 'Variance', 'Sample'])
         self.save = save
         self.plot = plot
+        self.dir_path = dir_path
+        self.name = name
         if self.save:
-            if os.path.exists('./plot'):
-                import shutil
-                shutil.rmtree('./plot')
-            os.makedirs('./plot')
+            if os.path.exists(self.dir_path):
+                pass
+            else:
+                os.makedirs(self.dir_path)
 
     # Function to compute descriptive statistics
     def compute_statistics(self, values):
@@ -52,7 +54,8 @@ class tensorboard_parser:
                 'Max': max_val,
                 'Min': min_val,
                 'Std Dev': std_dev,
-                'Variance': variance
+                'Variance': variance,
+                'Sample': None  # Placeholder for the 'Sample' column
             }, ignore_index=True)
             
             # Plot the scalar metric
@@ -65,8 +68,8 @@ class tensorboard_parser:
         plt.tight_layout()
         
         if self.save:
-            os.makedirs("./plot", exist_ok=True)
-            plt.savefig('./plot/all_metrics.png', dpi=300)
+            plt.savefig(os.path.join(self.dir_path, f'{self.name}.png'), dpi=300)
+            logger.info(f"Saved the plot to {os.path.join(self.dir_path, f'{self.name}.png')}")
         
         # Show the plot
         if self.plot:
@@ -74,7 +77,7 @@ class tensorboard_parser:
 
         # Display the statistics DataFrame
         print(self.stats_df)
-        self.stats_df.to_csv('./stats.csv', index=False)
+        self.stats_df.to_csv(os.path.join(self.dir_path, f'{self.name}.csv'), index=False)
 
     def parse(self, field=["Episode/raw_dist", "Episode/raw_effort", "Episode/raw_orient", "Episode/raw_spin", "Episode/rew_effort", "Episode/rew_orient", "Episode/rew_pos","Episode/rew_spin","rewards/step"]) -> pd.DataFrame:
         for key in self.scalar_keys:
@@ -114,7 +117,7 @@ class tensorboard_parser:
 if __name__ == '__main__':
     # Create an instance of the tensorboard_parser class
     path = r"H:\Omniverse\Library\isaac_sim-2023.1.1\SimpleEureka\results\2024-05-21_23-51-53\iter0\1\summaries\events.out.tfevents.1716307000.DESKTOP-P1IIRLN"
-    tb_parser = tensorboard_parser(path,save=True, plot=True)
+    tb_parser = tensorboard_parser(path, save=True, plot=True)
     # Parse the log files and plot the scalar metrics
     tb_parser.parse_and_plot()
     # Parse the log files and return the DataFrame
