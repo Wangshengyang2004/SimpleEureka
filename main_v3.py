@@ -19,10 +19,11 @@ from utils.system import (
     clean_folder,
     copy_folder_sub,
 )
-from utils.misc import block_until_training, construct_run_log 
+from utils.misc import block_until_training, construct_run_log
 from pathlib import Path
 from utils.agent import Agent
 from utils.tensorboard_parser import tensorboard_parser
+
 platform = sys.platform
 now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logger = logger.opt(colors=True)
@@ -32,18 +33,12 @@ logger.add(
     backtrace=True,
     diagnose=True,
 )
-
 EUREKA_ROOT_DIR = os.getcwd()
-# clean_empty_folders(f"{EUREKA_ROOT_DIR}/results")
-# remove_folders_with_output_log(f"{EUREKA_ROOT_DIR}/results")
 RESULT_DIR = f"{EUREKA_ROOT_DIR}/results/{now}"
-
-# Clean the results directory
 shutil.rmtree(RESULT_DIR, ignore_errors=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
 
 
-# Define a type alias for the config object
 @logger.catch
 @hydra.main(config_path="./config", config_name="config", version_base="1.3")
 def main(cfg: DictConfig) -> None:
@@ -58,7 +53,7 @@ def main(cfg: DictConfig) -> None:
     SCRIPTS_DIR = cfg.gym.scriptpath
     HEADLESS = cfg.gym.headless
     ENABLE_RECORDING = cfg.gym.enable_recording
-    
+
     MULTIGPU = cfg.gym.multigpu
     prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
     logger.debug(f"Using LLM: {cfg.api.model} with API Key: {cfg.api.key}")
@@ -78,7 +73,7 @@ def main(cfg: DictConfig) -> None:
     max_success_reward_correlation_overall = DUMMY_FAILURE
     max_reward_code_path = None
     clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
-    
+
     # ---------------------- MESSAGE Assemble------------------#
     actor_prompt = Agent(cfg=cfg)
     messages = actor_prompt.message()
@@ -186,13 +181,13 @@ def main(cfg: DictConfig) -> None:
                     break
 
             code_runs.append(code_string)
-
-            # Implement our code here, skip for now
             code_string, reward_only_string = process_response(
                 code_string, task_obs_code_string
             )
             # Save the new environment code when the output contains valid code string!
-            output_file = f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}.py"  # env_iter{iter}_response{response_id}.py
+            output_file = (
+                f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}.py"
+            )
             try:
                 with open(output_file, "w") as file:
                     file.writelines(code_string + "\n")
@@ -230,7 +225,11 @@ def main(cfg: DictConfig) -> None:
                     os.makedirs(f"{BASE_DIR}/{response_id}/videos/", exist_ok=True)
                     command += f"enable_recording=True recording_dir={BASE_DIR}/{response_id}/videos/"
                 else:
-                    logger.info("Recording is disabled! Either enable recording or use multi-gpu training!")
+                    logger.info(
+                        "Recording is disabled! Either enable recording or use multi-gpu training!"
+                    )
+
+                # TODO: Add Wandb support
                 # command += f"hydra.run.dir={BASE_DIR}/{response_id} checkpoint={BASE_DIR}/{response_id}/checkpoint/"
                 # if cfg.use_wandb:
                 #     command.append("--no-wandb")
@@ -255,7 +254,6 @@ def main(cfg: DictConfig) -> None:
         code_feedbacks = []
         contents = []
         successes = []
-        # reward_correlations = []
         code_paths = []
 
         exec_success = False
@@ -266,79 +264,70 @@ def main(cfg: DictConfig) -> None:
             code_paths.append(
                 f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}.py"
             )
+
             try:
                 with open(rl_filepath, "r") as f:
                     stdout_str = f.read()
-                    construct_run_log(stdout_str)
-            except CODE_EXECUTION_SYNTAXERROR as e:
-                logger.error(f"Failed run log construction due to: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg="Code Run cannot be executed due to function syntax error! Please fix it!"
-                )
-                content += code_output_tip
-                contents.append(content)
-                successes.append(DUMMY_FAILURE)
-                # reward_correlations.append(DUMMY_FAILURE)
-                continue
-            except CODE_EXECUTION_VALUEERROR as e:
-                logger.error(f"Failed run log construction due to: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg="Code Run cannot be executed due to function value error! Please fix it!"
-                )
-                content += code_output_tip
-                contents.append(content)
-                successes.append(DUMMY_FAILURE)
-                # reward_correlations.append(DUMMY_FAILURE)
-                continue
-
             except Exception as e:
-                logger.error(f"Other error occurred during run log construction!:{e}")
+                logger.error(f"Error reading RL output log: {e}")
                 content = execution_error_feedback.format(
-                    traceback_msg="Code Run cannot be executed due to unknown error! Please fix it!"
+                    traceback_msg=f"Failed to read output log: {e}"
                 )
-                content += code_output_tip
-                contents.append(content)
+                contents.append(content + code_output_tip)
                 successes.append(DUMMY_FAILURE)
-                # reward_correlations.append(DUMMY_FAILURE)
                 continue
 
+            if "success_keyword" in stdout_str:
+                try:
+                    run_log = construct_run_log(stdout_str)
+                    exec_success = True
+                    successes.append(
+                        100
+                    )  # Assuming 100 indicates a success, adjust based on actual criteria
 
-            content = ""
-            run_log = construct_run_log(stdout_str)
-            tensorboard_log = tensorboard_parser(log_path=rl_filepath, save=True)
-            content.join(run_log)
-            contents.append(content)
-            successes.append(100)
-            exec_success = True
+                    # Aggregate policy-related feedback using details from run_log
+                    policy_feedback_content = policy_feedback.format(
+                        epoch_stats="Detailed epoch statistics or other metrics"  # Replace with actual data extraction logic from run_log
+                    )
+                    content = (
+                        policy_feedback_content
+                        + "\n"
+                        + "\n".join([f"{key}: {val}" for key, val in run_log.items()])
+                    )
+                    contents.append(content + code_output_tip)
+                except Exception as e:
+                    logger.error(f"Error processing run log: {e}")
+                    content = execution_error_feedback.format(
+                        traceback_msg=f"Error processing run log: {e}"
+                    )
+                    contents.append(content + code_output_tip)
+                    successes.append(DUMMY_FAILURE)
+            else:
+                exec_success = False
+                successes.append(DUMMY_FAILURE)
+                content = execution_error_feedback.format(
+                    traceback_msg="Error encountered during RL training. Check logs for details."
+                )
+                contents.append(content + code_output_tip)
 
-        # Repeat the iteration if all code generation failed
+        # Additional code to determine the best response and handle feedback for the next iteration
         if not exec_success and cfg.generation.sample != 1:
             execute_rates.append(0.0)
             max_successes.append(DUMMY_FAILURE)
-            max_successes_reward_correlation.append(DUMMY_FAILURE)
-            best_code_paths.append(None)
-            logger.info(
-                "All code generation failed! Repeat this iteration from the current message checkpoint!"
-            )
+            logger.info("All code generation failed! Repeating this iteration.")
             continue
 
-        # Select the best code sample based on the success rate
         best_sample_idx = np.argmax(np.array(successes))
         best_content = contents[best_sample_idx]
-
         max_success = successes[best_sample_idx]
-        # max_success_reward_correlation = reward_correlations[best_sample_idx]
         execute_rate = np.sum(np.array(successes) >= 0.0) / cfg.generation.sample
 
-        # Update the best Eureka Output
         if max_success > max_success_overall:
             max_success_overall = max_success
-            # max_success_reward_correlation_overall = max_success_reward_correlation
             max_reward_code_path = code_paths[best_sample_idx]
 
         execute_rates.append(execute_rate)
         max_successes.append(max_success)
-        # max_successes_reward_correlation.append(max_success_reward_correlation)
         best_code_paths.append(code_paths[best_sample_idx])
 
         logger.info(
@@ -347,45 +336,42 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"Iteration {iter}: Best Generation ID: {best_sample_idx}")
         logger.info(
             f"Iteration {iter}: GPT Output Content:\n"
-            + responses[best_sample_idx].message.content
-            + "\n"
+            + responses[best_sample_idx]["message"]["content"]
         )
-        logger.info(f"Iteration {iter}: User Content:\n" + best_content + "\n")
+        logger.info(f"Iteration {iter}: User Content:\n" + best_content)
 
+        # Update messaging for next iteration
         if len(messages) == 2:
-            messages += [
+            messages.append(
                 {
                     "role": "assistant",
-                    "content": responses[best_sample_idx].message.content,
+                    "content": responses[best_sample_idx]["message"]["content"],
                 }
-            ]
-            messages += [{"role": "user", "content": best_content}]
+            )
+            messages.append({"role": "user", "content": best_content})
         else:
             assert len(messages) == 4
             messages[-2] = {
                 "role": "assistant",
-                "content": responses[best_sample_idx].message.content,
+                "content": responses[best_sample_idx]["message"]["content"],
             }
             messages[-1] = {"role": "user", "content": best_content}
 
-        # Save dictionary as JSON file
+        # Save the updated messages to a JSON file
         with open("messages.json", "w") as file:
             json.dump(messages, file, indent=4)
 
-    if max_reward_code_path is None:
-        logger.error("All iterations of code generation failed, aborting...")
-        logger.error(
-            "Please double check the output env_iter*_response*.txt files for repeating errors!"
+        if max_reward_code_path is None:
+            logger.error("All iterations of code generation failed, aborting...")
+            exit()
+
+        logger.info(
+            f"Max Training Success {max_success_overall}, Best Reward Code Path: {max_reward_code_path}"
         )
-        exit()
-    logger.info(
-        f"Task: {cfg.gym.task}, Max Training Success {max_success_overall}, Correlation {max_success_reward_correlation_overall}, Best Reward Code Path: {max_reward_code_path}"
-    )
 
-    best_reward = file_to_string(max_reward_code_path)
-    with open(output_file.replace(".py", ".txt"), "w") as file:
-        file.writelines(best_reward + "\n")
-
+        best_reward = file_to_string(max_reward_code_path)
+        with open(output_file.replace(".py", ".txt"), "w") as file:
+            file.writelines(best_reward + "\n")
 
 
 if __name__ == "__main__":

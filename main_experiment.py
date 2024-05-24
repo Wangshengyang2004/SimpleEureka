@@ -69,17 +69,18 @@ def main(cfg: DictConfig) -> None:
     code_output_tip = file_to_string(f"{prompt_dir}/actor/code_output_tip.txt")
     DUMMY_FAILURE = -10000.0
     max_successes = []
-    max_successes_reward_correlation = []
     execute_rates = []
     best_code_paths = []
     max_success_overall = DUMMY_FAILURE
-    max_success_reward_correlation_overall = DUMMY_FAILURE
     max_reward_code_path = None
     clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
     
     # ---------------------- MESSAGE Assemble------------------#
+    # Experiment can be done here by changing the prompt, must follow the message format
     actor_prompt = Agent(cfg=cfg)
     messages = actor_prompt.message()
+    
+    # ---------------------- Save Prompt ------------------#
     full_prompt = messages[0]["content"] + messages[1]["content"]
     logger.info("Full Prompt: " + full_prompt)
     # Save the full prompt to a file under {EUREKA_ROOT_DIR}/results
@@ -212,12 +213,18 @@ def main(cfg: DictConfig) -> None:
                 if platform == "win32":
                     driver = cfg.gym.omniisaacsimpathenv.split(":")[0]
                     if MULTIGPU:
-                        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multigpu={MULTIGPU} "
+                        if not HEADLESS:
+                            logger.warning("Multi-GPU training is only supported in headless mode! Please set headless=False in the config. Making headless=True for now.")
+                            HEADLESS = True
+                        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu={MULTIGPU} "
                     else:
                         command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} "
                 elif platform == "linux":
                     if MULTIGPU:
-                        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multigpu={MULTIGPU} "
+                        if not HEADLESS:
+                            logger.warning("Multi-GPU training is only supported in headless mode! Please set headless=False in the config. Making headless=True for now.")
+                            HEADLESS = True
+                        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu={MULTIGPU} "
                     else:
                         command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} "
                 else:
@@ -229,9 +236,7 @@ def main(cfg: DictConfig) -> None:
                     command += f"enable_recording=True recording_dir={BASE_DIR}/{response_id}/videos/"
                 else:
                     logger.info("Recording is disabled! Either enable recording or use multi-gpu training!")
-                # command += f"hydra.run.dir={BASE_DIR}/{response_id} checkpoint={BASE_DIR}/{response_id}/checkpoint/"
-                # if cfg.use_wandb:
-                #     command.append("--no-wandb")
+
                 logger.info(f"Command: {command}")
                 process = subprocess.Popen(
                     command, shell=True, stdout=f, stderr=f, encoding=encoding
@@ -251,6 +256,63 @@ def main(cfg: DictConfig) -> None:
 
         for response_id, (code_run, rl_run) in enumerate(zip(code_runs, rl_runs)):
             rl_run.communicate()
+            # Determine the success of the code run
+            success, reward = process_rl_run_results(rl_run)
+            max_successes.append(success)
+            if success > max_success_overall:
+                max_success_overall = success
+                max_reward_code_path = code_run
+            
+            # Store execution results and their rewards
+            with open(f"{BASE_DIR}/{response_id}/results.json", 'w') as f:
+                results_data = {
+                    "success": success,
+                    "reward": reward,
+                    "code": code_run
+                }
+                json.dump(results_data, f, indent=4)
+
+            logger.info(f"Iteration {iter}: Code Run {response_id} - Success: {success}, Reward: {reward}")
+
+        # After processing all responses for this iteration
+        if max_success_overall == DUMMY_FAILURE:
+            logger.error("No successful runs in this iteration.")
+        else:
+            logger.success(f"Iteration {iter}: Best Code Path - {max_reward_code_path}")
+
+        # Cleanup for the next iteration
+        best_code_paths.append(max_reward_code_path)
+        max_success_overall = DUMMY_FAILURE  # Reset for the next iteration
+
+        # Optional: Analyze TensorBoard data to extract performance metrics
+        tensorboard_data = tensorboard_parser(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
+        execute_rates.append(tensorboard_data['execution_rate'])
+
+        # Summary after all iterations
+        if iter == cfg.generation.epochs - 1:
+            logger.info("Finalizing and cleaning up...")
+            summarize_experiment_results(execute_rates, max_successes, best_code_paths)
+
+# Function to process and determine success from RL run logs or outputs
+def process_rl_run_results(rl_run):
+    # Placeholder for actual result processing logic
+    success = False
+    reward = 0
+    # Implementation needed to parse rl_run output or logs to determine success and calculate reward
+    return success, reward
+
+# Function to summarize and log the overall experiment results
+def summarize_experiment_results(execute_rates, max_successes, best_code_paths):
+    average_execution_rate = sum(execute_rates) / len(execute_rates)
+    highest_success_rate = max(max_successes)
+    logger.info(f"Average Execution Rate: {average_execution_rate}")
+    logger.info(f"Highest Success Rate: {highest_success_rate}")
+    logger.info("Best Performing Code Paths:")
+    for path in best_code_paths:
+        logger.info(path)
+
+
+
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ backup/*
 *.png
 experiment*
 *.json
+**.pyc
 # config/config.yaml
 # ---> Python
 # Byte-compiled / optimized / DLL files
