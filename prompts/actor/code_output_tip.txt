@@ -20,14 +20,17 @@ def name_your_new_function_here(xxx) -> None:
     pass
 
 def calculate_metrics(self) -> None:
+    # Make sure the new variables you introduced is well-defined
     self.new_function_here(xxx, yyy, zzz) # Remember to add self.name_your_new_function_here. It's in a class
     ...
     root_positions = self.root_pos - self._env_pos
     ...
     target_dist = torch.sqrt(torch.square(self.target_positions - root_positions).sum(-1))
     ...
+    ups = quat_axis(root_quats, 2)
+    self.target_dist = target_dist
     self.root_positions = root_positions
-    self.orient_z = ...
+    self.orient_z = ups[..., 2]
     ...
     spin = torch.square(root_angvels).sum(-1)
     spin_reward = 0.01 * torch.exp(-0.1 * spin)
@@ -42,10 +45,8 @@ def calculate_metrics(self) -> None:
     self.episode_sums["raw_effort"] += effort
     self.episode_sums["raw_spin"] += spin
 
+def is_done(self) -> None:
+    pass # Make sure all variables here has self.xxx and in calculate_metrics you assign values to self.xxx
 #END
 
 ```
-
-Shouldn't continue to include:
-def is_done(self) -> None:
-    pass
