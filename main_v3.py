@@ -38,9 +38,10 @@ RESULT_DIR = f"{EUREKA_ROOT_DIR}/results/{now}"
 shutil.rmtree(RESULT_DIR, ignore_errors=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
 
+config_name = "config_linux" if platform == "linux" else "config_windows"
 
 @logger.catch
-@hydra.main(config_path="./config", config_name="config", version_base="1.3")
+@hydra.main(config_path="./config", config_name=config_name, version_base="1.3")
 def main(cfg: DictConfig) -> None:
     # ---------------------- SETUP ------------------#
     logger.info(
@@ -48,7 +49,7 @@ def main(cfg: DictConfig) -> None:
     )
     ISAAC_ROOT_DIR = cfg.gym.omniisaacsimpathenv
     PYTHON_PATH = cfg.gym.pythonpath
-    TASK = cfg.gym.task
+    TASK:str = cfg.gym.task
     TASK_PATH = cfg.output.overwrite
     SCRIPTS_DIR = cfg.gym.scriptpath
     HEADLESS = cfg.gym.headless
@@ -58,7 +59,7 @@ def main(cfg: DictConfig) -> None:
     prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
     logger.debug(f"Using LLM: {cfg.api.model} with API Key: {cfg.api.key}")
     code_feedback = file_to_string(f"{prompt_dir}/code_feedback.txt")
-    task_obs_code_string = file_to_string(f"{EUREKA_ROOT_DIR}/input/{TASK}.py")
+    task_obs_code_string = file_to_string(f"{EUREKA_ROOT_DIR}/input/{TASK.lower()}.py")
     policy_feedback = file_to_string(f"{prompt_dir}/policy_feedback.txt")
     execution_error_feedback = file_to_string(
         f"{prompt_dir}/execution_error_feedback.txt"

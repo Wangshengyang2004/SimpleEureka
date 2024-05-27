@@ -5,8 +5,11 @@ gym:
   scriptpath : "scripts/rlgames_train.py"
   headless : True
   enable_recording : False
-  extra : "--env-config-path ./config.yaml"
+  extra : ""
   multigpu : False
+  max_iterations : 1000
+  checkpoint: ''
+  runs: .
 
 # output path for simple eureka
 output:
@@ -14,14 +17,26 @@ output:
   overwrite : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs/tasks/crazyflie.py"
 
 generation:
-  chunk_size: 4 # Default: 4
+  chunk_size: 5 # Default: 4
   epochs: 1
   sample: 10
   run_all: True
 
+critic_agent:
+  enable: True
+  name: "Alice"
+  duty: "product manager"
+
+actor_agent:
+  enable: True
+  name: "Bob"
+  duty: "reward function designer"
+  
 env:
   success_keyword: "MAX EPOCHS NUM!"
   failure_keyword: Traceback
+
 defaults:
   - _self_
   - api: moonshot
+  - task: double_flipping
