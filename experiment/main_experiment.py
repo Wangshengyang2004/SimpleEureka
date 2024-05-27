@@ -17,10 +17,12 @@ from utils.system import (
     clean_folder,
     copy_folder_sub,
 )
-from utils.misc import block_until_training
+from utils.misc import block_until_training, construct_run_log
 from pathlib import Path
 from utils.agent import Agent
 from utils.tensorboard_parser import tensorboard_parser
+import numpy as np
+import pandas as pd 
 platform = sys.platform
 now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logger = logger.opt(colors=True)
@@ -30,16 +32,10 @@ logger.add(
     backtrace=True,
     diagnose=True,
 )
-
 EUREKA_ROOT_DIR = os.getcwd()
-# clean_empty_folders(f"{EUREKA_ROOT_DIR}/results")
-# remove_folders_with_output_log(f"{EUREKA_ROOT_DIR}/results")
 RESULT_DIR = f"{EUREKA_ROOT_DIR}/results/{now}"
-
-# Clean the results directory
 shutil.rmtree(RESULT_DIR, ignore_errors=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
-
 
 # Define a type alias for the config object
 @logger.catch
@@ -58,15 +54,8 @@ def main(cfg: DictConfig) -> None:
     ENABLE_RECORDING = cfg.gym.enable_recording
     
     MULTIGPU = cfg.gym.multigpu
-    prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
     logger.debug(f"Using LLM: {cfg.api.model} with API Key: {cfg.api.key}")
-    code_feedback = file_to_string(f"{prompt_dir}/code_feedback.txt")
     task_obs_code_string = file_to_string(f"{EUREKA_ROOT_DIR}/input/{TASK}.py")
-    policy_feedback = file_to_string(f"{prompt_dir}/policy_feedback.txt")
-    execution_error_feedback = file_to_string(
-        f"{prompt_dir}/execution_error_feedback.txt"
-    )
-    code_output_tip = file_to_string(f"{prompt_dir}/actor/code_output_tip.txt")
     DUMMY_FAILURE = -10000.0
     max_successes = []
     execute_rates = []
@@ -256,13 +245,21 @@ def main(cfg: DictConfig) -> None:
 
         for response_id, (code_run, rl_run) in enumerate(zip(code_runs, rl_runs)):
             rl_run.communicate()
+            rl_filepath = f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}_train.log"
+            try:
+                with open(rl_filepath, "r") as f:
+                    stdout_str = f.read()
+            except Exception as e:
+                logger.error(f"Error reading RL output log: {e}")
+                continue
             # Determine the success of the code run
-            success, reward = process_rl_run_results(rl_run)
+            run_log = construct_run_log(stdout_str)
+            success = 100 if run_log["Success"] else DUMMY_FAILURE
             max_successes.append(success)
             if success > max_success_overall:
                 max_success_overall = success
                 max_reward_code_path = code_run
-            
+            reward = np.array(run_log["Reward"]).max()
             # Store execution results and their rewards
             with open(f"{BASE_DIR}/{response_id}/results.json", 'w') as f:
                 results_data = {
@@ -285,7 +282,7 @@ def main(cfg: DictConfig) -> None:
         max_success_overall = DUMMY_FAILURE  # Reset for the next iteration
 
         # Optional: Analyze TensorBoard data to extract performance metrics
-        tensorboard_data = tensorboard_parser(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
+        tensorboard_data = tensorboard_parser.parse_tensorboard(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
         execute_rates.append(tensorboard_data['execution_rate'])
 
         # Summary after all iterations
@@ -293,13 +290,6 @@ def main(cfg: DictConfig) -> None:
             logger.info("Finalizing and cleaning up...")
             summarize_experiment_results(execute_rates, max_successes, best_code_paths)
 
-# Function to process and determine success from RL run logs or outputs
-def process_rl_run_results(rl_run):
-    # Placeholder for actual result processing logic
-    success = False
-    reward = 0
-    # Implementation needed to parse rl_run output or logs to determine success and calculate reward
-    return success, reward
 
 # Function to summarize and log the overall experiment results
 def summarize_experiment_results(execute_rates, max_successes, best_code_paths):

@@ -45,3 +45,7 @@ def calculate_metrics(self) -> None:
 #END
 
 ```
+
+Shouldn't continue to include:
+def is_done(self) -> None:
+    pass

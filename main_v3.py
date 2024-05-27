@@ -67,11 +67,9 @@ def main(cfg: DictConfig) -> None:
     code_output_tip = file_to_string(f"{prompt_dir}/actor/code_output_tip.txt")
     DUMMY_FAILURE = -10000.0
     max_successes = []
-    max_successes_reward_correlation = []
     execute_rates = []
     best_code_paths = []
     max_success_overall = DUMMY_FAILURE
-    max_success_reward_correlation_overall = DUMMY_FAILURE
     max_reward_code_path = None
     clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
 
@@ -278,7 +276,7 @@ def main(cfg: DictConfig) -> None:
                 successes.append(DUMMY_FAILURE)
                 continue
 
-            if "success_keyword" in stdout_str:
+            if  cfg.env.success_keyword in stdout_str:
                 try:
                     run_log = construct_run_log(stdout_str)
                     exec_success = True
@@ -291,7 +289,7 @@ def main(cfg: DictConfig) -> None:
                         epoch_stats="Detailed epoch statistics or other metrics"  # Replace with actual data extraction logic from run_log
                     )
                     content = (
-                        policy_feedback_content
+                        policy_feedback_content + code_feedback
                         + "\n"
                         + "\n".join([f"{key}: {val}" for key, val in run_log.items()])
                     )
@@ -304,7 +302,7 @@ def main(cfg: DictConfig) -> None:
                     contents.append(content + code_output_tip)
                     successes.append(DUMMY_FAILURE)
             else:
-                exec_success = False
+                # exec_success = False
                 successes.append(DUMMY_FAILURE)
                 content = execution_error_feedback.format(
                     traceback_msg="Error encountered during RL training. Check logs for details."

@@ -49,6 +49,11 @@ def block_until_training(rl_filepath, success_keyword, failure_keyword, log_stat
         if "Simulation App Shutting Down" in rl_log:
             logger.success(f"Code Indeed Run, but Unknown error make it stop earilier: Iteration {iter_num}: Code Run {response_id} simulation app shutting down!")
             break
+        if "Max epochs reached" in rl_log:
+            logger.warning(f"Iteration {iter_num}: Code Run {response_id} max epochs reached before any env terminated at least once!")
+            logger.success("Training Done!")
+            break
+
         current_mod_time = os.path.getmtime(rl_filepath)
         if current_mod_time > initial_mod_time:
             last_update_time = time.time()
@@ -75,9 +80,10 @@ def construct_run_log(stdout_str):
         run_log['KeyError'] = None
         run_log['Success'] = True
         # Use Regex to find saving checkpoints
-        pattern = re.compile(r"last_(.*)")
-        run_log['Checkpoints'] = pattern.findall(stdout_str)
-    
+        checkpoints_pattern = re.compile(r"last_(.*)")
+        run_log['Checkpoints'] = checkpoints_pattern.findall(stdout_str)
+        reward_pattern = re.compile(r"Reward: (.*)")
+        run_log['Reward'] = reward_pattern.findall(stdout_str)
     return run_log
 
 if __name__ == "__main__":
