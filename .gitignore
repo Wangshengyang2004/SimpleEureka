@@ -6,7 +6,7 @@ notebooks/plot/*
 events.out*
 backup/*
 *.png
-experiment*
+# experiment*
 *.json
 **.pyc
 # config/config.yaml
