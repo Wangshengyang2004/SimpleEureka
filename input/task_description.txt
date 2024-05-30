@@ -1,1 +1,1 @@
-Task Description: A simple task: A Drone needs to perform a hovering task at point (2,2,2). It will perform 2m/s speed to go to the destination
+Task Description: A simple task: A Drone needs to perform a double flipping.

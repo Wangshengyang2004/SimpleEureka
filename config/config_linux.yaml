@@ -6,7 +6,7 @@ gym:
   headless : True
   enable_recording : False
   extra : ""
-  multigpu : False
+  multigpu : True
   max_iterations : 1000
   checkpoint: ''
   runs: .
@@ -17,9 +17,9 @@ output:
   overwrite : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs/tasks/crazyflie.py"
 
 generation:
-  chunk_size: 5 # Default: 4
+  chunk_size: 4 # Default: 4
   epochs: 1
-  sample: 10
+  sample: 4
   run_all: True
 
 critic_agent:
