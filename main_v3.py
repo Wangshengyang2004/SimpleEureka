@@ -14,7 +14,6 @@ from utils.extract_task_code import file_to_string
 from utils.simple_eureka import process_response
 import json
 import sys
-from tqdm import tqdm
 from utils.system import (
     check_system_encoding,
     clean_folder,
@@ -77,7 +76,12 @@ def main(cfg: DictConfig) -> None:
     best_code_paths = []
     max_success_overall = DUMMY_FAILURE
     max_reward_code_path = None
-    clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
+    try:
+        clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
+    except Exception as e:
+        logger.warning(f"Error cleaning up Isaac Sim directory: {e}")
+        os.makedirs(f"{ISAAC_ROOT_DIR}/runs/{TASK}", exist_ok=True)
+        logger.info(f"Created new directory: {ISAAC_ROOT_DIR}/runs/{TASK}")
 
     # ---------------------- MESSAGE Assemble------------------#
     actor_prompt = Agent(cfg=cfg)
@@ -89,7 +93,7 @@ def main(cfg: DictConfig) -> None:
         f.write(full_prompt)
 
     # ---------------------- Evolution ------------------#
-    for iter in tqdm(range(cfg.generation.epochs)):
+    for iter in range(cfg.generation.epochs):
         BASE_DIR = f"{RESULT_DIR}/iter{iter}"
         # Make sub directories: code, reponses, tensorboard, and videos
         os.makedirs(BASE_DIR, exist_ok=True)
@@ -286,7 +290,7 @@ def main(cfg: DictConfig) -> None:
                     # Parse Run log
                     run_log = construct_run_log(stdout_str)
                     # Parse tensorboard log
-                    tensorboard_logpath = f"{BASE_DIR}/{response_id}/tensorboard"
+                    tensorboard_logpath = f"{BASE_DIR}/{response_id}/summaries"
                     tb_parser = tensorboard_parser(tensorboard_logpath, save=True, plot=True, dir_path=f"{BASE_DIR}/{response_id}/plot", name=f"run_{response_id}")
                     tb_parser.parse_and_plot()
                     tb_df = tb_parser.parse()

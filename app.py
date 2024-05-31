@@ -63,7 +63,7 @@ def run_and_display_stdout(success_keyword, failure_keyword, *cmd_with_args):
     t_stderr.start()
 
     log_placeholder = st.empty()
-    buffer = deque(maxlen=50)
+    buffer = deque(maxlen=30)
 
     while True:
         line = None
@@ -87,7 +87,7 @@ def run_and_display_stdout(success_keyword, failure_keyword, *cmd_with_args):
             log_placeholder.code("\n".join(buffer), language="bash")
 
         # Check for success and failure keywords in both stdout and stderr
-        if line and success_keyword in line or err_line and success_keyword in err_line:
+        if line and "MAX EPOCHS NUM!" in line or err_line and "MAX EPOCHS NUM!" in err_line:
             logger.success("Code Run Successfully!")
             st.success("Code Run Successfully!")
             break
@@ -123,9 +123,16 @@ def test_with_this_file(file_path, headless=True, enable_recording=False, multig
     headless_flag = "headless=True" if headless else "headless=False"
 
     if platform == "win32":
-        command = ["cmd", "/c", f"cd /d {ISAAC_ROOT_DIR} && {PYTHON_PATH} -u {SCRIPTS_DIR} task={TASK} {headless_flag}"]
+        if multigpu:
+            command = ["cmd", "/c", f"cd /d {ISAAC_ROOT_DIR} && {PYTHON_PATH} -u -m torch.distributed.run --nnodes=1 --nproc_per_node=2  {SCRIPTS_DIR} task={TASK} {headless_flag} multi_gpu={multigpu} "]
+        else:
+            command = ["cmd", "/c", f"cd /d {ISAAC_ROOT_DIR} && {PYTHON_PATH} -u {SCRIPTS_DIR} task={TASK} {headless_flag}"]
     elif platform == "linux":
-        command = ["bash", "-c", f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} -u {SCRIPTS_DIR} task={TASK} {headless_flag}"]
+        if multigpu:
+            command = ["bash", "-c", f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} -u -m torch.distributed.run --nnodes=1 --nproc_per_node=2  {SCRIPTS_DIR} task={TASK} {headless_flag} multi_gpu={multigpu} "]
+        else:
+            command = ["bash", "-c", f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} -u {SCRIPTS_DIR} task={TASK} {headless_flag}"]
+
     else:
         logger.error("Unsupported platform!")
         exit()

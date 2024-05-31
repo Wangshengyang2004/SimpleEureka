@@ -1,1 +1,1 @@
-Task Description: A simple task: A Drone needs to perform a double flipping.
+description: "A Drone needs to flip twice. First along the x-axis, then along the y-axis. The Drone should stay within a 1m radius of the origin."
