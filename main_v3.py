@@ -14,6 +14,7 @@ from utils.extract_task_code import file_to_string
 from utils.simple_eureka import process_response
 import json
 import sys
+from tqdm import tqdm
 from utils.system import (
     check_system_encoding,
     clean_folder,
@@ -25,6 +26,10 @@ from utils.agent import Agent
 from utils.tensorboard_parser import tensorboard_parser
 
 platform = sys.platform
+# Exit if macOS is detected
+if platform == "darwin":
+    logger.error("macOS is not supported! Exiting...")
+    exit()
 now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logger = logger.opt(colors=True)
 logger.add(
@@ -40,6 +45,7 @@ os.makedirs(RESULT_DIR, exist_ok=True)
 
 config_name = "config_linux" if platform == "linux" else "config_windows"
 
+
 @logger.catch
 @hydra.main(config_path="./config", config_name=config_name, version_base="1.3")
 def main(cfg: DictConfig) -> None:
@@ -49,7 +55,7 @@ def main(cfg: DictConfig) -> None:
     )
     ISAAC_ROOT_DIR = cfg.gym.omniisaacsimpathenv
     PYTHON_PATH = cfg.gym.pythonpath
-    TASK:str = cfg.gym.task
+    TASK: str = cfg.gym.task
     TASK_PATH = cfg.output.overwrite
     SCRIPTS_DIR = cfg.gym.scriptpath
     HEADLESS = cfg.gym.headless
@@ -83,7 +89,7 @@ def main(cfg: DictConfig) -> None:
         f.write(full_prompt)
 
     # ---------------------- Evolution ------------------#
-    for iter in range(cfg.generation.epochs):
+    for iter in tqdm(range(cfg.generation.epochs)):
         BASE_DIR = f"{RESULT_DIR}/iter{iter}"
         # Make sub directories: code, reponses, tensorboard, and videos
         os.makedirs(BASE_DIR, exist_ok=True)
@@ -221,8 +227,7 @@ def main(cfg: DictConfig) -> None:
                     exit()
 
                 if ENABLE_RECORDING and not MULTIGPU:
-                    os.makedirs(f"{BASE_DIR}/{response_id}/videos/", exist_ok=True)
-                    command += f"enable_recording=True recording_dir={BASE_DIR}/{response_id}/videos/"
+                    command += "enable_recording=True"
                 else:
                     logger.info(
                         "Recording is disabled! Either enable recording or use multi-gpu training!"
@@ -276,21 +281,26 @@ def main(cfg: DictConfig) -> None:
                 successes.append(DUMMY_FAILURE)
                 continue
 
-            if  cfg.env.success_keyword in stdout_str:
+            if cfg.env.success_keyword in stdout_str:
                 try:
+                    # Parse Run log
                     run_log = construct_run_log(stdout_str)
+                    # Parse tensorboard log
+                    tensorboard_logpath = f"{BASE_DIR}/{response_id}/tensorboard"
+                    tb_parser = tensorboard_parser(tensorboard_logpath, save=True, plot=True, dir_path=f"{BASE_DIR}/{response_id}/plot", name=f"run_{response_id}")
+                    tb_parser.parse_and_plot()
+                    tb_df = tb_parser.parse()
                     exec_success = True
-                    successes.append(
-                        100
-                    )  # Assuming 100 indicates a success, adjust based on actual criteria
-
+                    successes.append(100)
                     # Aggregate policy-related feedback using details from run_log
                     policy_feedback_content = policy_feedback.format(
                         epoch_stats="Detailed epoch statistics or other metrics"  # Replace with actual data extraction logic from run_log
                     )
                     content = (
-                        policy_feedback_content + code_feedback
+                        policy_feedback_content
+                        + code_feedback
                         + "\n"
+                        + tb_df.to_string()
                         + "\n".join([f"{key}: {val}" for key, val in run_log.items()])
                     )
                     contents.append(content + code_output_tip)
@@ -335,7 +345,7 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"Iteration {iter}: Best Generation ID: {best_sample_idx}")
         logger.info(
             f"Iteration {iter}: GPT Output Content:\n"
-            + responses[best_sample_idx]["message"]["content"]
+            + responses[best_sample_idx].message.content
         )
         logger.info(f"Iteration {iter}: User Content:\n" + best_content)
 
@@ -344,7 +354,7 @@ def main(cfg: DictConfig) -> None:
             messages.append(
                 {
                     "role": "assistant",
-                    "content": responses[best_sample_idx]["message"]["content"],
+                    "content": responses[best_sample_idx].message.content,
                 }
             )
             messages.append({"role": "user", "content": best_content})
@@ -352,7 +362,7 @@ def main(cfg: DictConfig) -> None:
             assert len(messages) == 4
             messages[-2] = {
                 "role": "assistant",
-                "content": responses[best_sample_idx]["message"]["content"],
+                "content": responses[best_sample_idx].message.content,
             }
             messages[-1] = {"role": "user", "content": best_content}
 

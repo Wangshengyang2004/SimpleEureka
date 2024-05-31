@@ -17,13 +17,21 @@
    conda create -n simple_eureka python=3.10
    conda activate simple_eureka
    pip install -r requirements.txt
-   python main_v2.py
-   or python main_v2.py api="gpt-4o"
-
+   # Use Moonshot-32k
+   python main_v3.py
+   # Use GPT-4o
+   python main_v3.py api="gpt-4o"
+   # Use GPT-4
+   python main_v3.py api="gpt-4"
+   ```
 ## License:
 Will be added later
 ## Author:
-**Shengyang Wang**, Undergraduate Student, Duke Kunshan University
+**Shengyang Wang**, Undergraduate Student, Class of 2026, Duke Kunshan University
+**Renzo**, Undergraduate Student, Class of 2025, Duke Kunshan University
 ## Instructor:
 - **Bing Luo**, Assistant Professor, Duke Kunshan University
 - **Wenli Xiao**, Graduate School, Carnegie Mellon University
+
+## Citation:
+- No ready yet
