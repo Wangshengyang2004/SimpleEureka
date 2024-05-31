@@ -4,10 +4,15 @@ import subprocess
 import yaml
 import sys
 import shutil
+import cv2
+import torch
+from PIL import Image
 from loguru import logger
 from collections import deque
 from threading import Thread
 from queue import Queue, Empty
+from torchviz import make_dot
+
 # Determine the platform-specific configuration file
 platform = sys.platform
 config_name = "config_linux" if platform == "linux" else "config_windows"
@@ -139,6 +144,50 @@ def test_with_this_file(file_path, headless=True, enable_recording=False, multig
 
     st.info(f"Command: {' '.join(command)}")
     run_and_display_stdout("Training done", "Error", *command)
+
+def display_file_content(file_path):
+    _, ext = os.path.splitext(file_path)
+    if ext in [".txt", ".py", ".log"]:
+        with open(file_path, "r") as file:
+            content = file.read()
+            st.code(content, language=ext[1:])
+    elif ext in [".png", ".jpg", ".jpeg", ".gif"]:
+        image = Image.open(file_path)
+        st.image(image, caption=file_path)
+    elif ext in [".mp4", ".avi", ".mov"]:
+        video_file = open(file_path, "rb")
+        video_bytes = video_file.read()
+        st.video(video_bytes)
+    elif ext == ".pth":
+        model = torch.load(file_path)
+        if isinstance(model, dict) and 'model_state_dict' in model:
+            st.write("Model state_dict keys:")
+            st.write(list(model['model_state_dict'].keys()))
+        else:
+            st.write("Model keys:")
+            st.write(list(model.keys()))
+        
+        # Visualize the model if possible
+        # If you have a predefined model class, you can visualize it:
+        # from your_model_module import YourModelClass
+        # model_instance = YourModelClass()
+        # model_instance.load_state_dict(model)
+        # dummy_input = torch.randn(1, 3, 224, 224)  # Adjust input size as necessary
+        # st.graphviz_chart(make_dot(model_instance(dummy_input), params=dict(model_instance.named_parameters())).source)
+        
+        st.write("Visualizing model structure (if supported)...")
+        try:
+            from your_model_module import YourModelClass  # Replace with actual model import
+            model_instance = YourModelClass()  # Replace with actual model initialization
+            model_instance.load_state_dict(model)
+            dummy_input = torch.randn(1, 3, 224, 224)  # Adjust input size as necessary
+            dot = make_dot(model_instance(dummy_input), params=dict(model_instance.named_parameters()))
+            st.graphviz_chart(dot.source)
+        except Exception as e:
+            st.error(f"Error visualizing model: {e}")
+    else:
+        st.error("Unsupported file format.")
+
 def app():
     st.title("Interactive File and Folder Viewer")
 
@@ -177,6 +226,32 @@ def app():
             with open(file_path, "r") as file:
                 content = file.read()
                 st.code(content, language=ext[1:])
+        elif ext in [".png", ".jpg", ".jpeg", ".gif"]:
+            image = Image.open(file_path)
+            st.image(image, caption=file_path)
+        elif ext in [".mp4", ".avi", ".mov"]:
+            video_file = open(file_path, "rb")
+            video_bytes = video_file.read()
+            st.video(video_bytes)
+        elif ext == ".pth":
+            model = torch.load(file_path)
+            if isinstance(model, dict) and 'model_state_dict' in model:
+                st.write("Model state_dict keys:")
+                st.write(list(model['model_state_dict'].keys()))
+            else:
+                st.write("Model keys:")
+                st.write(list(model.keys()))
+            
+            st.write("Visualizing model structure (if supported)...")
+            try:
+                from your_model_module import YourModelClass  # Replace with actual model import
+                model_instance = YourModelClass()  # Replace with actual model initialization
+                model_instance.load_state_dict(model)
+                dummy_input = torch.randn(1, 3, 224, 224)  # Adjust input size as necessary
+                dot = make_dot(model_instance(dummy_input), params=dict(model_instance.named_parameters()))
+                st.graphviz_chart(dot.source)
+            except Exception as e:
+                st.error(f"Error visualizing model: {e}")
         else:
             st.error("Unsupported file format.")
 

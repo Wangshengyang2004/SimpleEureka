@@ -6,3 +6,7 @@ matplotlib
 pandas
 numpy
 tensorboard
+Pillow 
+opencv-python-headless
+torchviz
+graphviz
