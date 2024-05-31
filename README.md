@@ -27,8 +27,8 @@
 ## License:
 Will be added later
 ## Author:
-**Shengyang Wang**, Undergraduate Student, Class of 2026, Duke Kunshan University
-**Renzo**, Undergraduate Student, Class of 2025, Duke Kunshan University
+- **Shengyang Wang**, Undergraduate Student, Class of 2026, Duke Kunshan University
+- **Renzo**, Undergraduate Student, Class of 2025, Duke Kunshan University
 ## Instructor:
 - **Bing Luo**, Assistant Professor, Duke Kunshan University
 - **Wenli Xiao**, Graduate School, Carnegie Mellon University
