@@ -291,7 +291,7 @@ def main(cfg: DictConfig) -> None:
                     run_log = construct_run_log(stdout_str)
                     # Parse tensorboard log
                     tensorboard_logpath = f"{BASE_DIR}/{response_id}/summaries"
-                    tb_parser = tensorboard_parser(tensorboard_logpath, save=True, plot=True, dir_path=f"{BASE_DIR}/{response_id}/plot", name=f"run_{response_id}")
+                    tb_parser = tensorboard_parser(tensorboard_logpath, save=True, plot=False, dir_path=f"{BASE_DIR}/{response_id}/plot", name=f"run_{response_id}")
                     tb_parser.parse_and_plot()
                     tb_df = tb_parser.parse()
                     exec_success = True

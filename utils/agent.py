@@ -65,7 +65,7 @@ class Agent:
         initial_user = file_to_string(f"{self.actor_dir}/initial_user.txt")
         human_code_diff = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/crazyflie_human_diff.py")
         task_obs_code_string = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/crazyflie.py")
-        env_config = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/crazyflie.yaml")
+        env_config = " " #file_to_string(f"{self.EUREKA_ROOT_DIR}/input/crazyflie.yaml")
         must_do = file_to_string(f"{self.actor_dir}/must_do.txt")
         final = "Add a sign for end of your code, when you finish the is_done part: #END\n"
 
