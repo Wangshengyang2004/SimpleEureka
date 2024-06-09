@@ -1,8 +1,8 @@
 # isaacsim path, gym environment, python path
 gym:
-  omniisaacsimpathenv : "H:/Omniverse/Library/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs"
+  omniisaacsimpathenv : "C:\\Users\\simonwsy\\AppData\\Local\\ov\\pkg\\isaac_sim-2023.1.1\\OmniIsaacGymEnvs\\omniisaacgymenvs"
   task : "Crazyflie"
-  pythonpath : "H:/Omniverse/Library/isaac_sim-2023.1.1/python.bat"
+  pythonpath : "C:\\Users\\simonwsy\\AppData\\Local\\ov\\pkg\\isaac_sim-2023.1.1\\python.bat"
   scriptpath : "scripts/rlgames_train.py"
   headless : True
   enable_recording : False
@@ -15,12 +15,12 @@ gym:
 # output path for simple eureka
 output:
   path : "./results/{date}"
-  overwrite : "H:\\Omniverse\\Library\\isaac_sim-2023.1.1\\OmniIsaacGymEnvs\\omniisaacgymenvs\\tasks\\crazyflie.py"
+  overwrite : "C:\\Users\\simonwsy\\AppData\\Local\\ov\\pkg\\isaac_sim-2023.1.1\\OmniIsaacGymEnvs\\omniisaacgymenvs\\tasks\\crazyflie.py"
 
 generation:
   chunk_size: 4 # Default: 4
   epochs: 1
-  sample: 100
+  sample: 20
   run_all: True
 
 critic_agent:

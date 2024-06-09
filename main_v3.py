@@ -54,8 +54,8 @@ def main(cfg: DictConfig) -> None:
     )
     ISAAC_ROOT_DIR = cfg.gym.omniisaacsimpathenv
     PYTHON_PATH = cfg.gym.pythonpath
-    TASK: str = cfg.gym.task
-    TASK_PATH = cfg.output.overwrite
+    TASK_NAME: str = cfg.gym.task
+    TASK_NAME_PATH = cfg.output.overwrite
     SCRIPTS_DIR = cfg.gym.scriptpath
     HEADLESS = cfg.gym.headless
     ENABLE_RECORDING = cfg.gym.enable_recording
@@ -64,7 +64,7 @@ def main(cfg: DictConfig) -> None:
     prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
     logger.debug(f"Using LLM: {cfg.api.model} with API Key: {cfg.api.key}")
     code_feedback = file_to_string(f"{prompt_dir}/code_feedback.txt")
-    task_obs_code_string = file_to_string(f"{EUREKA_ROOT_DIR}/input/{TASK.lower()}.py")
+    task_obs_code_string = file_to_string(f"{EUREKA_ROOT_DIR}/input/{TASK_NAME.lower()}.py")
     policy_feedback = file_to_string(f"{prompt_dir}/policy_feedback.txt")
     execution_error_feedback = file_to_string(
         f"{prompt_dir}/execution_error_feedback.txt"
@@ -77,11 +77,11 @@ def main(cfg: DictConfig) -> None:
     max_success_overall = DUMMY_FAILURE
     max_reward_code_path = None
     try:
-        clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
+        clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK_NAME}")
     except Exception as e:
         logger.warning(f"Error cleaning up Isaac Sim directory: {e}")
-        os.makedirs(f"{ISAAC_ROOT_DIR}/runs/{TASK}", exist_ok=True)
-        logger.info(f"Created new directory: {ISAAC_ROOT_DIR}/runs/{TASK}")
+        os.makedirs(f"{ISAAC_ROOT_DIR}/runs/{TASK_NAME}", exist_ok=True)
+        logger.info(f"Created new directory: {ISAAC_ROOT_DIR}/runs/{TASK_NAME}")
 
     # ---------------------- MESSAGE Assemble------------------#
     actor_prompt = Agent(cfg=cfg)
@@ -155,7 +155,7 @@ def main(cfg: DictConfig) -> None:
 
         for response_id in range(cfg.generation.sample):
             # Clean up the omniverse isaac sim environment's output directory
-            clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK}")
+            clean_folder(f"{ISAAC_ROOT_DIR}/runs/{TASK_NAME}")
             os.makedirs(f"{BASE_DIR}/{response_id}", exist_ok=True)
             os.makedirs(f"{BASE_DIR}/{response_id}/checkpoint", exist_ok=True)
             response_cur = responses[response_id].message.content
@@ -210,7 +210,7 @@ def main(cfg: DictConfig) -> None:
             ) as file:
                 file.writelines(reward_only_string + "\n")
 
-            shutil.copyfile(output_file, f"{TASK_PATH}")
+            shutil.copyfile(output_file, f"{TASK_NAME_PATH}")
             std_path = f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}_train.log"
             with open(std_path, "w") as f:
                 encoding = "utf-8" if check_system_encoding() else "gbk"
@@ -218,14 +218,14 @@ def main(cfg: DictConfig) -> None:
                 if platform == "win32":
                     driver = cfg.gym.omniisaacsimpathenv.split(":")[0]
                     if MULTIGPU:
-                        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu={MULTIGPU} "
+                        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK_NAME} headless={HEADLESS} multi_gpu={MULTIGPU} "
                     else:
-                        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} "
+                        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK_NAME} headless={HEADLESS} "
                 elif platform == "linux":
                     if MULTIGPU:
-                        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK} headless={HEADLESS} multi_gpu={MULTIGPU} "
+                        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} -m torch.distributed.run --nnodes=1 --nproc_per_node=2 {SCRIPTS_DIR} task={TASK_NAME} headless={HEADLESS} multi_gpu={MULTIGPU} "
                     else:
-                        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK} headless={HEADLESS} "
+                        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK_NAME} headless={HEADLESS} "
                 else:
                     logger.error("Unsupported platform!")
                     exit()
@@ -254,7 +254,7 @@ def main(cfg: DictConfig) -> None:
                 response_id=response_id,
             )
             copy_folder_sub(
-                f"{ISAAC_ROOT_DIR}/runs/{TASK}", f"{BASE_DIR}/{response_id}/"
+                f"{ISAAC_ROOT_DIR}/runs/{TASK_NAME}", f"{BASE_DIR}/{response_id}/"
             )
             rl_runs.append(process)
 
