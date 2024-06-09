@@ -293,7 +293,7 @@ def main(cfg: DictConfig) -> None:
                     tensorboard_logpath = f"{BASE_DIR}/{response_id}/summaries"
                     tb_parser = tensorboard_parser(tensorboard_logpath, save=True, plot=False, dir_path=f"{BASE_DIR}/{response_id}/plot", name=f"run_{response_id}")
                     tb_parser.parse_and_plot()
-                    tb_df = tb_parser.parse()
+                    tb_df = tb_parser.parse(field=None)
                     exec_success = True
                     successes.append(100)
                     # Aggregate policy-related feedback using details from run_log
