@@ -5,6 +5,7 @@ config/api/*
 notebooks/plot/*
 events.out*
 backup/*
+multirun/*
 *.png
 # experiment*
 *.json

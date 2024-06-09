@@ -24,7 +24,8 @@ class Agent:
             fellow_name = cfg.actor_agent.name
             # Load prompt for critic agent
             critic_prompt = file_to_string(f"{self.critic_dir}/user.txt")
-            task_description: str = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/task_description.txt")
+            # task_description: str = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/task_description.txt")
+            task_description: str = cfg.task.description
             system_instruction = file_to_string(f"{self.critic_dir}/system.txt")
             system_instruction = system_instruction.format(
                 name=name,

@@ -65,9 +65,9 @@ def block_until_training(rl_filepath, success_keyword, failure_keyword, log_stat
         
         time.sleep(10)  # Sleep for a short while to prevent excessive checking
 
-def construct_run_log(stdout_str):
+def construct_run_log(stdout_str) -> dict:
     run_log = {}
-    lines = stdout_str.split('\n')
+    # lines = stdout_str.split('\n')
     # Detect Key errors
     run_log['Error'] = filter_traceback(stdout_str)
     if "SyntaxError: invalid syntax" in stdout_str:

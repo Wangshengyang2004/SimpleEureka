@@ -1,1 +1,1 @@
-description: "A Drone needs to flip twice. First along the x-axis, then along the y-axis. The Drone should stay within a 1m radius of the origin."
+description: "A Drone needs to flip twice. After two flipping, drone should be at the same point it starts. Two flips don't require certain axis like pitch, yaw, etc. It can be any axis. Even the diagonal axis."

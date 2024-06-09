@@ -9,7 +9,12 @@ import datetime
 import shutil
 import numpy as np
 import openai
-from utils.exceptions import CODE_EXECUTION_SYNTAXERROR, CODE_EXECUTION_VALUEERROR
+import pandas as pd
+from utils.exceptions import (
+    CODE_EXECUTION_SYNTAXERROR,
+    CODE_EXECUTION_VALUEERROR,
+    BLANK_TENSORBOARD_LOG_ERROR,
+)
 from utils.extract_task_code import file_to_string
 from utils.simple_eureka import process_response
 import json
@@ -64,7 +69,9 @@ def main(cfg: DictConfig) -> None:
     prompt_dir = f"{EUREKA_ROOT_DIR}/prompts"
     logger.debug(f"Using LLM: {cfg.api.model} with API Key: {cfg.api.key}")
     code_feedback = file_to_string(f"{prompt_dir}/code_feedback.txt")
-    task_obs_code_string = file_to_string(f"{EUREKA_ROOT_DIR}/input/{TASK_NAME.lower()}.py")
+    task_obs_code_string = file_to_string(
+        f"{EUREKA_ROOT_DIR}/input/{TASK_NAME.lower()}.py"
+    )
     policy_feedback = file_to_string(f"{prompt_dir}/policy_feedback.txt")
     execution_error_feedback = file_to_string(
         f"{prompt_dir}/execution_error_feedback.txt"
@@ -198,7 +205,7 @@ def main(cfg: DictConfig) -> None:
                 f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}.py"
             )
             try:
-                with open(output_file, "w") as file:
+                with open(output_file, "w", encoding="utf-8") as file:
                     file.writelines(code_string + "\n")
             except TypeError as e:
                 logger.error(f"Error writing to file: {e}")
@@ -207,6 +214,7 @@ def main(cfg: DictConfig) -> None:
             with open(
                 f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}_rewardonly.py",
                 "w",
+                encoding="utf-8",
             ) as file:
                 file.writelines(reward_only_string + "\n")
 
@@ -285,43 +293,64 @@ def main(cfg: DictConfig) -> None:
                 successes.append(DUMMY_FAILURE)
                 continue
 
-            if cfg.env.success_keyword in stdout_str:
-                try:
-                    # Parse Run log
-                    run_log = construct_run_log(stdout_str)
-                    # Parse tensorboard log
-                    tensorboard_logpath = f"{BASE_DIR}/{response_id}/summaries"
-                    tb_parser = tensorboard_parser(tensorboard_logpath, save=True, plot=False, dir_path=f"{BASE_DIR}/{response_id}/plot", name=f"run_{response_id}")
-                    tb_parser.parse_and_plot()
-                    tb_df = tb_parser.parse(field=None)
-                    exec_success = True
-                    successes.append(100)
-                    # Aggregate policy-related feedback using details from run_log
-                    policy_feedback_content = policy_feedback.format(
-                        epoch_stats="Detailed epoch statistics or other metrics"  # Replace with actual data extraction logic from run_log
-                    )
-                    content = (
-                        policy_feedback_content
-                        + code_feedback
-                        + "\n"
-                        + tb_df.to_string()
-                        + "\n".join([f"{key}: {val}" for key, val in run_log.items()])
-                    )
-                    contents.append(content + code_output_tip)
-                except Exception as e:
-                    logger.error(f"Error processing run log: {e}")
-                    content = execution_error_feedback.format(
-                        traceback_msg=f"Error processing run log: {e}"
-                    )
-                    contents.append(content + code_output_tip)
-                    successes.append(DUMMY_FAILURE)
-            else:
-                # exec_success = False
-                successes.append(DUMMY_FAILURE)
-                content = execution_error_feedback.format(
-                    traceback_msg="Error encountered during RL training. Check logs for details."
+            try:
+                # Parse Run log
+                run_log = construct_run_log(stdout_str)
+                # Parse tensorboard log
+                tensorboard_logpath = f"{BASE_DIR}/{response_id}/summaries"
+                tb_parser = tensorboard_parser(
+                    tensorboard_logpath,
+                    save=True,
+                    plot=False,
+                    dir_path=f"{BASE_DIR}/{response_id}/plot",
+                    name=f"run_{response_id}",
+                )
+                tb_parser.parse_and_plot()
+                tb_df = tb_parser.parse()
+                exec_success = True
+                # Aggregate policy-related feedback using details from run_log
+                policy_feedback_content = policy_feedback.format(
+                    epoch_stats="Detailed epoch statistics or other metrics"  # Replace with actual data extraction logic from run_log
+                )
+
+                content = (
+                    policy_feedback_content
+                    + code_feedback
+                    + "\n"
+                    + tb_df.to_string()
+                    + "\n".join([f"{key}: {val}" for key, val in run_log.items()])
                 )
                 contents.append(content + code_output_tip)
+                successes.append(100)
+            except CODE_EXECUTION_SYNTAXERROR as e:
+                logger.error(f"Syntax Error encountered during RL training: {e}")
+                content = execution_error_feedback.format(
+                    traceback_msg=f"Syntax Error encountered during RL training: {e}"
+                )
+                contents.append(content + code_output_tip)
+                successes.append(DUMMY_FAILURE)
+            except CODE_EXECUTION_VALUEERROR as e:
+                logger.error(f"Value Error encountered during RL training: {e}")
+                content = execution_error_feedback.format(
+                    traceback_msg=f"Value Error encountered during RL training: {e}"
+                )
+                contents.append(content + code_output_tip)
+                successes.append(DUMMY_FAILURE)
+            except BLANK_TENSORBOARD_LOG_ERROR as e:
+                logger.warning(f"Tensorboard log is empty: {e}")
+                content = execution_error_feedback.format(
+                    traceback_msg=f"Tensorboard log is empty: {e}"
+                )
+                contents.append(content + code_output_tip)
+                successes.append(DUMMY_FAILURE)
+
+            except Exception as e:
+                logger.error(f"Error processing run log: {e}")
+                content = execution_error_feedback.format(
+                    traceback_msg=f"Error processing run log: {e}"
+                )
+                contents.append(content + code_output_tip)
+                successes.append(DUMMY_FAILURE)
 
         # Additional code to determine the best response and handle feedback for the next iteration
         if not exec_success and cfg.generation.sample != 1:
@@ -347,11 +376,11 @@ def main(cfg: DictConfig) -> None:
             f"Iteration {iter}: Max Success: {max_success}, Execute Rate: {execute_rate}"
         )
         logger.info(f"Iteration {iter}: Best Generation ID: {best_sample_idx}")
-        logger.info(
-            f"Iteration {iter}: GPT Output Content:\n"
-            + responses[best_sample_idx].message.content
-        )
-        logger.info(f"Iteration {iter}: User Content:\n" + best_content)
+        # logger.info(
+        #     f"Iteration {iter}: GPT Output Content:\n"
+        #     + responses[best_sample_idx].message.content
+        # )
+        # logger.info(f"Iteration {iter}: User Content:\n" + best_content)
 
         # Update messaging for next iteration
         if len(messages) == 2:

@@ -28,6 +28,8 @@ def calculate_metrics(self) -> None:
     target_dist = torch.sqrt(torch.square(self.target_positions - root_positions).sum(-1))
     ...
     ups = quat_axis(root_quats, 2)
+
+    # These three for example, you must not forget to initialize them here
     self.target_dist = target_dist
     self.root_positions = root_positions
     self.orient_z = ups[..., 2]

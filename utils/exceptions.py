@@ -21,3 +21,11 @@ class CODE_EXECUTION_VALUEERROR(Exception):
     
     def __str__(self):
         return f"Code execution error. Check grammar and varible setting {self.message}"
+    
+class BLANK_TENSORBOARD_LOG_ERROR(Exception):
+    def __init__(self, message="The TensorBoard log file is empty. Skipping"):
+        self.message = message
+        super().__init__(self.message)
+    
+    def __str__(self):
+        return f"{self.message}"
