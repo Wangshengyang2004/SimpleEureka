@@ -43,6 +43,7 @@ result_dir: "latest"
 checkpoint_name: "latest"
 run_all: False
 record_video: False
+record_base_dir: "./videos"
 defaults:
   - _self_
   - api: moonshot
