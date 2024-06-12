@@ -20,7 +20,7 @@ output:
 generation:
   chunk_size: 4 # Default: 4
   epochs: 1
-  sample: 100
+  sample: 4
   run_all: True
 
 critic_agent:
@@ -42,9 +42,9 @@ idx: 0
 result_dir: "latest"
 checkpoint_name: "latest"
 run_all: False
-record_video: False
+record_video: True
 record_base_dir: "./videos"
 defaults:
   - _self_
-  - api: moonshot
-  - task: double_flipping
+  - api: gpt-4
+  - task: hover_222
