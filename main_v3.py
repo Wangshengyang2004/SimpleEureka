@@ -285,7 +285,7 @@ def main(cfg: DictConfig) -> None:
             )
 
             try:
-                with open(rl_filepath, "r") as f:
+                with open(rl_filepath, "r", encoding="utf-8") as f:
                     stdout_str = f.read()
             except Exception as e:
                 logger.error(f"Error reading RL output log: {e}")
