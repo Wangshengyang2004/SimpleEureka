@@ -298,7 +298,7 @@ def main(cfg: DictConfig) -> None:
                 # No Error
                 exec_success = True
                 # Parse Run log
-                run_log = construct_run_log(stdout_str)
+                # run_log = construct_run_log(stdout_str)
                 # Parse tensorboard log
                 tensorboard_logpath = f"{BASE_DIR}/{response_id}/summaries"
                 tb_parser = tensorboard_parser(
@@ -312,7 +312,7 @@ def main(cfg: DictConfig) -> None:
                 tb_df = tb_parser.parse()
                 # Aggregate policy-related feedback using details from run_log
                 policy_feedback = policy_feedback.format(
-                    epoch_freq=max(len((tb_df["rewards/iter"])) // 10, 1),
+                    sample_size=max(len((tb_df["rewards/iter"])) // 10, 1),
                     tb_df=tb_df.to_string(),
                 )
                 content += policy_feedback
