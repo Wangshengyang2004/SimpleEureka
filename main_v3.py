@@ -241,8 +241,10 @@ def main(cfg: DictConfig) -> None:
 
                 if ENABLE_RECORDING and not MULTIGPU:
                     command += "enable_recording=True"
+                elif not ENABLE_RECORDING and MULTIGPU:
+                    command += "enable_recording=False"
                 else:
-                    logger.info(
+                    logger.warning(
                         "Recording is disabled! Either enable recording or use multi-gpu training!"
                     )
 

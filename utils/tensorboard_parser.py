@@ -63,7 +63,7 @@ class tensorboard_parser:
         
         plt.tight_layout()
         if self.save:
-            plt.savefig(os.path.join(self.dir_path, f'{self.name}.png'), dpi)
+            plt.savefig(os.path.join(self.dir_path, f'{self.name}.png'), dpi=dpi)
             logger.info(f"Saved the plot to {os.path.join(self.dir_path, f'{self.name}.png')}")
         if self.plot:
             plt.show()
