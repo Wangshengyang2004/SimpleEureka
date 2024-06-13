@@ -36,7 +36,7 @@ def main(cfg: DictConfig):
     RECORD_VIDEO = cfg.record_video
     RECORD_BASE_DIR = cfg.record_base_dir
     test = True
-    num_envs = 64
+    num_envs = 1
     if platform == "win32":
         driver = cfg.gym.omniisaacsimpathenv.split(":")[0]
         command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK_NAME} test={test} num_envs={num_envs}"
