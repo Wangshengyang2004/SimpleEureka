@@ -314,13 +314,13 @@ def main(cfg: DictConfig) -> None:
                 tb_df = tb_parser.parse()
                 # Aggregate policy-related feedback using details from run_log
                 policy_feedback = policy_feedback.format(
-                    sample_size=max(len((tb_df["rewards/iter"])) // 10, 1),
+                    sample_size="20",
                     tb_df=tb_df.to_string(),
                 )
                 content += policy_feedback
                 code_feedbacks.append(code_feedback)
                 content += code_feedback
-                successes.append(tb_df["rewards/iter"].iloc[-1].max())
+                successes.append(tb_df.loc[24,"Max"])
             else:
                 content = execution_error_feedback.format(traceback_msg=traceback_msg)
                 successes.append(DUMMY_FAILURE)

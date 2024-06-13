@@ -1,6 +1,9 @@
 import re
 import openai
 from loguru import logger
+import ffmpeg
+import os
+import glob
 
 def clean_response(text):
     # Remove import statements
@@ -134,7 +137,35 @@ def task_description_optimizer(cfg, task_description):
     response = response_cur.choices[0].message.content
     return response
 
+def concat_videos(videos_path):
+    # Find all .mp4 files in the specified directory
+    video_files = sorted(glob.glob(os.path.join(videos_path, '*.mp4')))
+    
+    # Generate a list of input streams
+    inputs = [ffmpeg.input(v) for v in video_files]
+    
+    # Concatenate all videos using ffmpeg concat filter
+    joined = ffmpeg.concat(*inputs, v=1, a=1).node
+    
+    # Define the output path (in the parent directory of videos_path)
+    output_path = os.path.join(videos_path, os.pardir, "full_video.mp4")
+    
+    # Run ffmpeg to combine the videos
+    ffmpeg.output(joined[0], joined[1], output_path).run(overwrite_output=True)
+    
+    # Clear all files in the input path
+    for f in os.listdir(videos_path):
+        os.remove(os.path.join(videos_path, f))
+
+    # Remove the now empty folder
+    os.rmdir(videos_path)
+
+    logger.info(f"Video saved to {output_path}")
+    logger.info("Input directory cleared and removed.")
+
 if __name__ == "__main__":
+    videos_path = "C:\\Users\\Yan\\Desktop\\videos"
+    concat_videos(videos_path)
     # Example usage:
     partial_code = """
     # Import necessary libraries

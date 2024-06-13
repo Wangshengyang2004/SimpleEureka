@@ -31,6 +31,7 @@ def filter_traceback(s):
             return '\n'.join(filtered_lines)
     return ''  # Return an empty string if no Traceback is found
 
+# TODO: Add a return value to indicate if the training was successful or not, so that copy_folder_sub can be called accordingly
 def block_until_training(rl_filepath, success_keyword, failure_keyword, log_status=False, iter_num=-1, response_id=-1):
     # Ensure that the RL training has started before moving on
     start_time = time.time()
@@ -59,7 +60,7 @@ def block_until_training(rl_filepath, success_keyword, failure_keyword, log_stat
             last_update_time = time.time()
             initial_mod_time = current_mod_time
         
-        if time.time() - last_update_time > 180:
+        if time.time() - last_update_time > 60:
             logger.error(f"Iteration {iter_num}: Code Run {response_id} training timeout!")
             break
         

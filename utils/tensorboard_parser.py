@@ -43,7 +43,8 @@ class tensorboard_parser:
             steps = [e.step for e in events]
             values = [e.value for e in events]
             mean, max_val, min_val, std_dev, variance = self.compute_statistics(values)
-            
+            sample_condition = np.arange(len(values)) % 50 == 0
+            sample = np.array(values)[sample_condition]
             new_row = pd.DataFrame({
                 'Metric': [key],
                 'Mean': [mean],
@@ -51,7 +52,7 @@ class tensorboard_parser:
                 'Min': [min_val],
                 'Std Dev': [std_dev],
                 'Variance': [variance],
-                'Sample': [None]  # Placeholder for the 'Sample' column
+                'Sample': [sample]  # Placeholder for the 'Sample' column
             })
             self.stats_df = pd.concat([self.stats_df, new_row], ignore_index=True)
             
