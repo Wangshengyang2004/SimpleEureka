@@ -1,4 +1,3 @@
-import os
 import re
 import openai
 from loguru import logger
@@ -51,7 +50,7 @@ def replace_observation_buffer(code):
 def extract_and_remove_dict(code_text):
     # Regex pattern to capture and remove dictionary content after 'self.episode_sums ='
     pattern = r"(self\.episode_sums\s*=\s*\{)([^}]+)(\})"
-    match = re.search(pattern, code_text, re.DOTALL)
+    match = re.search(pattern, code_text, re.DOTALL) 
     if match:
         # Extract dictionary content
         dict_content = match.group(2)  # Only the content inside the braces

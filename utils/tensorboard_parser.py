@@ -30,7 +30,7 @@ class tensorboard_parser:
         return mean, max_val, min_val, std_dev, variance
 
     # @logger.catch
-    def parse_and_plot(self):
+    def parse_and_plot(self, dpi=300):
         if not self.scalar_keys:
             raise BLANK_TENSORBOARD_LOG_ERROR
         num_metrics = len(self.scalar_keys)
@@ -63,12 +63,12 @@ class tensorboard_parser:
         
         plt.tight_layout()
         if self.save:
-            plt.savefig(os.path.join(self.dir_path, f'{self.name}.png'), dpi=300)
+            plt.savefig(os.path.join(self.dir_path, f'{self.name}.png'), dpi)
             logger.info(f"Saved the plot to {os.path.join(self.dir_path, f'{self.name}.png')}")
         if self.plot:
             plt.show()
         print(self.stats_df)
-        self.stats_df.to_csv(os.path.join(self.dir_path, f'{self.name}.csv'), index=False)
+        self.stats_df.to_pickle(os.path.join(self.dir_path, f'{self.name}.pkl'))
 
     # @logger.catch
     def parse(self, field=["Episode/raw_dist", "Episode/raw_effort", "Episode/raw_orient", "Episode/raw_spin", "Episode/rew_effort", "Episode/rew_orient", "Episode/rew_pos","Episode/rew_spin","rewards/step"]) -> pd.DataFrame:

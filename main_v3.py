@@ -9,12 +9,6 @@ import datetime
 import shutil
 import numpy as np
 import openai
-import pandas as pd
-from utils.exceptions import (
-    CODE_EXECUTION_SYNTAXERROR,
-    CODE_EXECUTION_VALUEERROR,
-    BLANK_TENSORBOARD_LOG_ERROR,
-)
 from utils.extract_task_code import file_to_string
 from utils.simple_eureka import process_response
 import json
@@ -24,7 +18,7 @@ from utils.system import (
     clean_folder,
     copy_folder_sub,
 )
-from utils.misc import block_until_training, construct_run_log
+from utils.misc import block_until_training, construct_run_log, filter_traceback
 from pathlib import Path
 from utils.agent import Agent
 from utils.tensorboard_parser import tensorboard_parser
@@ -123,7 +117,7 @@ def main(cfg: DictConfig) -> None:
                 try:
                     response_cur = client.chat.completions.create(
                         model=cfg.api.model,
-                        messages=messages,
+                        messages=messages, # type: ignore
                         temperature=cfg.api.temperature,
                         max_tokens=cfg.api.max_tokens,
                         n=chunk_size,
@@ -141,6 +135,8 @@ def main(cfg: DictConfig) -> None:
                 exit()
 
             responses.extend(response_cur.choices)
+            if response_cur.usage is None:
+                continue
             prompt_tokens = response_cur.usage.prompt_tokens
             total_completion_token += response_cur.usage.completion_tokens
             total_token += response_cur.usage.total_tokens
@@ -200,6 +196,11 @@ def main(cfg: DictConfig) -> None:
             code_string, reward_only_string = process_response(
                 code_string, task_obs_code_string
             )
+            if code_string is None or reward_only_string is None:
+                logger.error(
+                    f"Error processing response {response_id}, skipping to next response..."
+                )
+                continue
             # Save the new environment code when the output contains valid code string!
             output_file = (
                 f"{BASE_DIR}/{response_id}/env_iter{iter}_response{response_id}.py"
@@ -286,14 +287,16 @@ def main(cfg: DictConfig) -> None:
                     stdout_str = f.read()
             except Exception as e:
                 logger.error(f"Error reading RL output log: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg=f"Failed to read output log: {e}"
-                )
-                contents.append(content + code_output_tip)
+                content = "Code Run cannot be executed due to response parsing error!"
+                contents.append(content) 
                 successes.append(DUMMY_FAILURE)
                 continue
-
-            try:
+            
+            content = ""
+            traceback_msg = filter_traceback(stdout_str)
+            if traceback_msg == '':
+                # No Error
+                exec_success = True
                 # Parse Run log
                 run_log = construct_run_log(stdout_str)
                 # Parse tensorboard log
@@ -305,57 +308,29 @@ def main(cfg: DictConfig) -> None:
                     dir_path=f"{BASE_DIR}/{response_id}/plot",
                     name=f"run_{response_id}",
                 )
-                tb_parser.parse_and_plot()
+                tb_parser.parse_and_plot(dpi=150)
                 tb_df = tb_parser.parse()
-                exec_success = True
                 # Aggregate policy-related feedback using details from run_log
-                policy_feedback_content = policy_feedback.format(
-                    epoch_stats="Detailed epoch statistics or other metrics"  # Replace with actual data extraction logic from run_log
+                policy_feedback = policy_feedback.format(
+                    epoch_freq=max(len((tb_df["rewards/iter"])) // 10, 1),
+                    tb_df=tb_df.to_string(),
                 )
-
-                content = (
-                    policy_feedback_content
-                    + code_feedback
-                    + "\n"
-                    + tb_df.to_string()
-                    + "\n".join([f"{key}: {val}" for key, val in run_log.items()])
-                )
-                contents.append(content + code_output_tip)
-                successes.append(100)
-            except CODE_EXECUTION_SYNTAXERROR as e:
-                logger.error(f"Syntax Error encountered during RL training: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg=f"Syntax Error encountered during RL training: {e}"
-                )
-                contents.append(content + code_output_tip)
+                content += policy_feedback
+                code_feedbacks.append(code_feedback)
+                content += code_feedback
+                successes.append(tb_df["rewards/iter"].iloc[-1].max())
+            else:
+                content = execution_error_feedback.format(traceback_msg=traceback_msg)
                 successes.append(DUMMY_FAILURE)
-            except CODE_EXECUTION_VALUEERROR as e:
-                logger.error(f"Value Error encountered during RL training: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg=f"Value Error encountered during RL training: {e}"
-                )
-                contents.append(content + code_output_tip)
-                successes.append(DUMMY_FAILURE)
-            except BLANK_TENSORBOARD_LOG_ERROR as e:
-                logger.warning(f"Tensorboard log is empty: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg=f"Tensorboard log is empty: {e}"
-                )
-                contents.append(content + code_output_tip)
-                successes.append(DUMMY_FAILURE)
-
-            except Exception as e:
-                logger.error(f"Error processing run log: {e}")
-                content = execution_error_feedback.format(
-                    traceback_msg=f"Error processing run log: {e}"
-                )
-                contents.append(content + code_output_tip)
-                successes.append(DUMMY_FAILURE)
+            
+            content += code_output_tip
+            contents.append(content)
 
         # Additional code to determine the best response and handle feedback for the next iteration
         if not exec_success and cfg.generation.sample != 1:
             execute_rates.append(0.0)
             max_successes.append(DUMMY_FAILURE)
+            best_code_paths.append(None)
             logger.info("All code generation failed! Repeating this iteration.")
             continue
 
@@ -376,11 +351,6 @@ def main(cfg: DictConfig) -> None:
             f"Iteration {iter}: Max Success: {max_success}, Execute Rate: {execute_rate}"
         )
         logger.info(f"Iteration {iter}: Best Generation ID: {best_sample_idx}")
-        # logger.info(
-        #     f"Iteration {iter}: GPT Output Content:\n"
-        #     + responses[best_sample_idx].message.content
-        # )
-        # logger.info(f"Iteration {iter}: User Content:\n" + best_content)
 
         # Update messaging for next iteration
         if len(messages) == 2:
@@ -400,7 +370,7 @@ def main(cfg: DictConfig) -> None:
             messages[-1] = {"role": "user", "content": best_content}
 
         # Save the updated messages to a JSON file
-        with open("messages.json", "w") as file:
+        with open(f"{BASE_DIR}/messages.json", "w") as file:
             json.dump(messages, file, indent=4)
 
         if max_reward_code_path is None:
@@ -415,6 +385,13 @@ def main(cfg: DictConfig) -> None:
         with open(output_file.replace(".py", ".txt"), "w") as file:
             file.writelines(best_reward + "\n")
 
+    if cfg.evaluation:
+        subprocess.Popen(
+            "python test_checkpoint.py run_all=True",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
 if __name__ == "__main__":
-    main()
+    main() # type: ignore
