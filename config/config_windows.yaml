@@ -45,6 +45,7 @@ checkpoint_name: "latest"
 run_all: False
 record_video: True
 record_base_dir: "./videos"
+concat_videos: True
 defaults:
   - _self_
   - api: gpt-4

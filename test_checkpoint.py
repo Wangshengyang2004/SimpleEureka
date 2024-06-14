@@ -8,6 +8,8 @@ from loguru import logger
 import shutil
 import pathlib
 
+from utils.simple_eureka import concat_videos
+
 current_dir = pathlib.Path(__file__).parent.absolute()
 platform = sys.platform
 if platform == "darwin":
@@ -35,6 +37,7 @@ def main(cfg: DictConfig):
     CHECKPOINT_NAME = cfg.checkpoint_name
     RECORD_VIDEO = cfg.record_video
     RECORD_BASE_DIR = cfg.record_base_dir
+    CONCAT_VIDEO = cfg.concat_video
     test = True
     num_envs = 1
     if platform == "win32":
@@ -88,6 +91,8 @@ def main(cfg: DictConfig):
         process = subprocess.Popen(command, shell=True)
         process.wait()
         logger.info("Execution completed!")
+        if CONCAT_VIDEO:
+            concat_videos(RECORD_DIR)
 
     if RUN_ALL:
         # Run all the checkpoints under RESULT_DIR

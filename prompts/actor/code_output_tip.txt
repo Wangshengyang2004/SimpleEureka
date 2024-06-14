@@ -9,8 +9,12 @@
 - Make sure the type of each input variable is correctly specified; a float input variable should not be specified as torch.Tensor
 - Most importantly, the reward code's input variables must contain only attributes of the provided environment class definition (namely, variables that have prefix self.). Under no circumstance can you introduce new input variables.
 
-Your output format. (just for the skeleton)
-
+Your output format, just for the skeleton. You must pay attention to the content labeled with "### ###" in the following code:
+## These three for example, you must not forget to initialize them here
+    self.target_dist = target_dist
+    self.root_positions = root_positions
+    self.orient_z = ups[..., 2]
+    ###
 ```Python
 # New Code Starts Here
 import math
@@ -29,10 +33,11 @@ def calculate_metrics(self) -> None:
     ...
     ups = quat_axis(root_quats, 2)
 
-    # These three for example, you must not forget to initialize them here
+    ### These three for example, you must not forget to initialize them here
     self.target_dist = target_dist
     self.root_positions = root_positions
     self.orient_z = ups[..., 2]
+    ###
     ...
     spin = torch.square(root_angvels).sum(-1)
     spin_reward = 0.01 * torch.exp(-0.1 * spin)
