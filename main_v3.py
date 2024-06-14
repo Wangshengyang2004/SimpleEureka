@@ -30,17 +30,16 @@ if platform == "darwin":
     exit()
 now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logger = logger.opt(colors=True)
+EUREKA_ROOT_DIR = os.getcwd()
+RESULT_DIR = f"{EUREKA_ROOT_DIR}/results/{now}"
+shutil.rmtree(RESULT_DIR, ignore_errors=True)
+os.makedirs(RESULT_DIR, exist_ok=True)
 logger.add(
     sink=f"./results/{now}/output.log",
     enqueue=True,
     backtrace=True,
     diagnose=True,
 )
-EUREKA_ROOT_DIR = os.getcwd()
-RESULT_DIR = f"{EUREKA_ROOT_DIR}/results/{now}"
-shutil.rmtree(RESULT_DIR, ignore_errors=True)
-os.makedirs(RESULT_DIR, exist_ok=True)
-
 config_name = "config_linux" if platform == "linux" else "config_windows"
 
 
@@ -285,7 +284,7 @@ def main(cfg: DictConfig) -> None:
             )
 
             try:
-                with open(rl_filepath, "r", encoding="utf-8") as f:
+                with open(rl_filepath, "r") as f:
                     stdout_str = f.read()
             except Exception as e:
                 logger.error(f"Error reading RL output log: {e}")
@@ -388,12 +387,13 @@ def main(cfg: DictConfig) -> None:
             file.writelines(best_reward + "\n")
 
     if cfg.evaluation:
-        subprocess.Popen(
-            "python test_checkpoint.py run_all=True",
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        logger.info("Starting Evaluation...")
+        try:
+            result = subprocess.run(['python', 'test_checkpoint.py', 'run_all=True'], shell=True, capture_output=True, text=True, check=True)
+            logger.info(result.stdout)
+        except subprocess.CalledProcessError as e:
+            logger.error(e.stderr)
+            exit()
 
 if __name__ == "__main__":
     main() # type: ignore

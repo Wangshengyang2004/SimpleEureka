@@ -37,14 +37,14 @@ def main(cfg: DictConfig):
     CHECKPOINT_NAME = cfg.checkpoint_name
     RECORD_VIDEO = cfg.record_video
     RECORD_BASE_DIR = cfg.record_base_dir
-    CONCAT_VIDEO = cfg.concat_video
+    CONCAT_VIDEO = cfg.concat_videos
     test = True
-    num_envs = 1
+    num_envs = cfg.num_envs
     if platform == "win32":
         driver = cfg.gym.omniisaacsimpathenv.split(":")[0]
-        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK_NAME} test={test} num_envs={num_envs}"
+        command = f"{driver}: & cd {ISAAC_ROOT_DIR} & {PYTHON_PATH} {SCRIPTS_DIR} task={TASK_NAME} test={test} num_envs={num_envs} recording_length={cfg.recording_length} recording_interval={cfg.recording_interval} max_iterations={cfg.max_epochs}"
     elif platform == "linux":
-        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK_NAME} test={test} num_envs={num_envs}"
+        command = f"cd {ISAAC_ROOT_DIR} && {PYTHON_PATH} {SCRIPTS_DIR} task={TASK_NAME} test={test} num_envs={num_envs} recording_length={cfg.recording_length} recording_interval={cfg.recording_interval} max_iterations={cfg.max_epochs}"
     else:
         logger.error("Unsupported platform! Exiting...")
         exit()

@@ -140,7 +140,10 @@ def task_description_optimizer(cfg, task_description):
 def concat_videos(videos_path):
     # Find all .mp4 files in the specified directory
     video_files = sorted(glob.glob(os.path.join(videos_path, '*.mp4')))
-    
+    if len(video_files) % 2 != 0:
+        logger.warning("Number of video files should be even for concatenation.")
+        video_files.pop()  # Remove the last file if the count is odd
+
     # Generate a list of input streams
     inputs = [ffmpeg.input(v) for v in video_files]
     
@@ -149,7 +152,7 @@ def concat_videos(videos_path):
     
     # Define the output path (in the parent directory of videos_path)
     output_path = os.path.join(videos_path, os.pardir, "full_video.mp4")
-    
+    os.makedirs(os.path.join(videos_path, os.pardir), exist_ok=True)
     # Run ffmpeg to combine the videos
     ffmpeg.output(joined[0], joined[1], output_path).run(overwrite_output=True)
     

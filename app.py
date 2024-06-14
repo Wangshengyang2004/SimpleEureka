@@ -252,6 +252,21 @@ def app():
                 st.graphviz_chart(dot.source)
             except Exception as e:
                 st.error(f"Error visualizing model: {e}")
+        elif ext in [".yaml", ".yml"]:
+            with open(file_path, "r") as file:
+                content = file.read()
+                st.code(content, language="yaml")
+        elif ext in [".json"]:
+            with open(file_path, "r") as file:
+                content = file.read()
+                st.json(content)
+        elif ext in [".pkl", ".pickle"]:
+            try:
+                import pandas as pd
+                data = pd.read_pickle(file_path)
+                st.write(data)
+            except Exception as e:
+                st.error(f"Error loading pickle file: {e}")
         else:
             st.error("Unsupported file format.")
 

@@ -41,11 +41,14 @@ iter: 0
 idx: 0
 result_dir: "latest"
 checkpoint_name: "latest"
-run_all: False
+run_all: True
 record_video: True
 record_base_dir: "./videos"
+recording_length: 1000
+recording_interval: 300
 concat_videos: True
-
+num_envs: 64
+max_epochs: 50
 defaults:
   - _self_
   - api: gpt-4

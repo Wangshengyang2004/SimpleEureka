@@ -72,12 +72,10 @@ class tensorboard_parser:
         self.stats_df.to_pickle(os.path.join(self.dir_path, f'{self.name}.pkl'))
 
     # @logger.catch
-    def parse(self, field=["Episode/raw_dist", "Episode/raw_effort", "Episode/raw_orient", "Episode/raw_spin", "Episode/rew_effort", "Episode/rew_orient", "Episode/rew_pos","Episode/rew_spin","rewards/step"]) -> pd.DataFrame:
+    def parse(self) -> pd.DataFrame:
         if not self.scalar_keys:
             raise BLANK_TENSORBOARD_LOG_ERROR
         for key in self.scalar_keys:
-            if key not in field:
-                continue
             events = self.ea.Scalars(key)
             values = [e.value for e in events]
             mean, max_val, min_val, std_dev, variance = self.compute_statistics(values)
