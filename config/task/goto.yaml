@@ -1,0 +1,1 @@
+description: "A Drone should go to the point (5, 6, 2) straight and fast. But need to go back to its original position after that, then end the task. The Drone should not hover at any point. Ensure that the reward engineer add a temperature constant to tune the speed of the drone."

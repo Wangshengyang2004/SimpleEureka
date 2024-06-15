@@ -247,6 +247,8 @@ class CrazyflieTask(RLTask):
             "rew_orient": torch_zeros(),
             "rew_effort": torch_zeros(),
             "rew_spin": torch_zeros(),
+            "rew_speed": torch_zeros(),
+            "rew_coline": torch_zeros(),
             "raw_dist": torch_zeros(),
             "raw_orient": torch_zeros(),
             "raw_effort": torch_zeros(),

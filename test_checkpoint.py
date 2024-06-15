@@ -71,6 +71,8 @@ def main(cfg: DictConfig):
         :param command: Command to run the simulation.
         :param max_running_time: Maximum running time in seconds.
         """
+        # Extract 0 from iter0 if the iter varible is "iter0" but not 0
+        iter = iter[4:] if iter.startswith("iter") else iter
         if RECORD_VIDEO:
             RECORD_DIR = os.path.join(current_dir, f"{RECORD_BASE_DIR}/{result_dir}/iter{iter}/idx{idx}")
             command += f" enable_recording=True recording_dir={RECORD_DIR}"

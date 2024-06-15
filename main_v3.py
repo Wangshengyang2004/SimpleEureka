@@ -390,7 +390,7 @@ def main(cfg: DictConfig) -> None:
         logger.info("Starting Evaluation...")
         try:
             # Use sys.executable to ensure the same Python interpreter is used
-            result = subprocess.run([sys.executable, 'test_checkpoint.py', '--run_all=True'], shell=False, check=True)
+            result = subprocess.run([sys.executable, 'test_checkpoint.py', 'run_all=True'], shell=False, check=True)
         except subprocess.CalledProcessError as e:
             logger.error("An error occurred during the evaluation.")
             logger.error(e.stderr)

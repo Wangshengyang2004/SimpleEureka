@@ -23,6 +23,16 @@ ensure no "class" or "__init__" is included in your output
         # Function that you newly created for calculation
 ```
 
+Plus since you cannot initialize the reward buffer, you must include the following dict keys, even though your values don't related to the keysself.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += 
+    self.episode_sums["rew_effort"] += 
+    self.episode_sums["rew_spin"] += 
+    self.episode_sums["rew_speed"] +=
+    self.episode_sums["raw_dist"] += 
+    self.episode_sums["raw_orient"] += 
+    self.episode_sums["raw_effort"] += 
+    self.episode_sums["raw_spin"] += 
+Adding new self.episode_sums[key] will cause error
 So the desired output is, you should check your code and correct any mistakes while you are reasoning and outputing: 
 ```Python
 # New Code Starts Here
@@ -54,6 +64,8 @@ def calculate_metrics(self) -> None:
     spin_reward = 0.01 * torch.exp(-0.1 * spin)
     total_reward = pos_reward + pos_reward * (orient_reward + spin_reward) - effort_reward
     self.rew_buf[:] = total_reward
+
+    # Make sure the left side, self.episode_sums maintains the same, though the key may not align with our new variables, but never mind
     self.episode_sums["rew_pos"] += pos_reward
     self.episode_sums["rew_orient"] += orient_reward
     self.episode_sums["rew_effort"] += effort_reward
