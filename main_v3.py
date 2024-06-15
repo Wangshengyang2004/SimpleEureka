@@ -84,7 +84,7 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"Created new directory: {ISAAC_ROOT_DIR}/runs/{TASK_NAME}")
 
     # ---------------------- MESSAGE Assemble------------------#
-    actor_prompt = Agent(cfg=cfg)
+    actor_prompt = Agent(cfg=cfg, result_dir=RESULT_DIR)
     messages = actor_prompt.message()
     full_prompt = messages[0]["content"] + messages[1]["content"]
     logger.info("Full Prompt: " + full_prompt)
@@ -389,9 +389,10 @@ def main(cfg: DictConfig) -> None:
     if cfg.evaluation:
         logger.info("Starting Evaluation...")
         try:
-            result = subprocess.run(['python', 'test_checkpoint.py', 'run_all=True'], shell=True, capture_output=True, text=True, check=True)
-            logger.info(result.stdout)
+            # Use sys.executable to ensure the same Python interpreter is used
+            result = subprocess.run([sys.executable, 'test_checkpoint.py', '--run_all=True'], shell=False, check=True)
         except subprocess.CalledProcessError as e:
+            logger.error("An error occurred during the evaluation.")
             logger.error(e.stderr)
             exit()
 

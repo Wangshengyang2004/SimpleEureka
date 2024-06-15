@@ -5,11 +5,12 @@ import os
 from loguru import logger
 
 class Agent:
-    def __init__(self, cfg):
+    def __init__(self, cfg, result_dir):
         self.cfg = cfg
         self.EUREKA_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.actor_dir = f"{self.EUREKA_ROOT_DIR}/prompts/actor"
         self.critic_dir = f"{self.EUREKA_ROOT_DIR}/prompts/critic"
+        self.result_dir = result_dir
     
     def critic_agent(self):
             """
@@ -52,6 +53,8 @@ class Agent:
                                 n=1
                             )
             self.detailed_task_description: str = response_cur.choices[0].message.content
+            with open(f"{self.result_dir}/detailed_task_description.txt", "w") as f:
+                f.write(self.detailed_task_description)
             logger.info(f"Critic Agent: {self.detailed_task_description}")
             logger.info(f"\n Prompt Token Cost: {response_cur.usage.prompt_tokens} \n Response Token Cost: {response_cur.usage.completion_tokens}")
 
