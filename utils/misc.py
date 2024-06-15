@@ -60,7 +60,7 @@ def block_until_training(rl_filepath, success_keyword, failure_keyword, log_stat
             last_update_time = time.time()
             initial_mod_time = current_mod_time
         
-        if time.time() - last_update_time > 60:
+        if time.time() - last_update_time > 180:
             logger.error(f"Iteration {iter_num}: Code Run {response_id} training timeout!")
             break
         

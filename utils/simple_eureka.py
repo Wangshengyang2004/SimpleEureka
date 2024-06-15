@@ -137,64 +137,72 @@ def task_description_optimizer(cfg, task_description):
     response = response_cur.choices[0].message.content
     return response
 
-def concat_videos(videos_path):
-    # Find all .mp4 files in the specified directory
-    video_files = sorted(glob.glob(os.path.join(videos_path, '*.mp4')))
-    if len(video_files) % 2 != 0:
-        logger.warning("Number of video files should be even for concatenation.")
-        video_files.pop()  # Remove the last file if the count is odd
 
-    # Generate a list of input streams
-    inputs = [ffmpeg.input(v) for v in video_files]
-    
-    # Concatenate all videos using ffmpeg concat filter
-    joined = ffmpeg.concat(*inputs, v=1, a=1).node
-    
-    # Define the output path (in the parent directory of videos_path)
-    output_path = os.path.join(videos_path, os.pardir, "full_video.mp4")
-    os.makedirs(os.path.join(videos_path, os.pardir), exist_ok=True)
-    # Run ffmpeg to combine the videos
-    ffmpeg.output(joined[0], joined[1], output_path).run(overwrite_output=True)
-    
-    # Clear all files in the input path
+def check_video_integrity(video_path):
+    try:
+        # This function will try to process the video file and catch errors
+        ffmpeg.input(video_path).output('null', format='null').run(capture_stdout=True, capture_stderr=True)
+        return True
+    except ffmpeg.Error as e:
+        logger.error(f"Error processing file {video_path}: {e.stderr}")
+        return False
+
+def concat_videos(videos_path):
+    video_files = sorted(glob.glob(os.path.join(videos_path, '*.mp4')))
+    if not video_files:
+        logger.warning("No video files found.")
+        return
+
+    inputs = [ffmpeg.input(filename) for filename in video_files]
+
+    # Using filter_complex with concat, assuming no audio streams
+    concat_filter = ffmpeg.filter_(inputs, 'concat', n=len(inputs), v=1, a=0)
+
+    # Define the output path with additional path parts for iter and idx
+    path_parts = videos_path.strip(os.sep).split(os.sep)
+    iter_and_idx = f"{path_parts[-2]}_{path_parts[-1]}" if len(path_parts) >= 2 else "output"
+    output_path = os.path.join(os.path.dirname(videos_path), f"full_video_{iter_and_idx}.mp4")
+
+    # Configure ffmpeg to use NVENC for encoding
+    ffmpeg.output(concat_filter, output_path, vcodec='h264_nvenc').run(overwrite_output=True)
+
+    # Clear all files in the input path and remove the directory
     for f in os.listdir(videos_path):
         os.remove(os.path.join(videos_path, f))
-
-    # Remove the now empty folder
     os.rmdir(videos_path)
 
     logger.info(f"Video saved to {output_path}")
     logger.info("Input directory cleared and removed.")
 
 if __name__ == "__main__":
-    videos_path = "C:\\Users\\Yan\\Desktop\\videos"
+    videos_path = "videos/results/2024-06-14_01-27-15/iter0/idx19"
     concat_videos(videos_path)
-    # Example usage:
-    partial_code = """
-    # Import necessary libraries
-    import torch
+    # # Example usage:
+    # partial_code = """
+    # # Import necessary libraries
+    # import torch
 
-    self.episode_sums = {
-        "rew_pos": torch.zeros(),
-        "rew_orient": torch.zeros(),
-        "new_metric": torch.zeros(),  # This is a new entry
-    }
+    # self.episode_sums = {
+    #     "rew_pos": torch.zeros(),
+    #     "rew_orient": torch.zeros(),
+    #     "new_metric": torch.zeros(),  # This is a new entry
+    # }
 
-    # Some additional unrelated code
-    def additional_function():
-        pass
-    """
+    # # Some additional unrelated code
+    # def additional_function():
+    #     pass
+    # """
 
-    original_code = """
-    class EpisodeMetrics:
-        def __init__(self):
-            self.episode_sums = {
-                "rew_pos": torch.zeros(),
-                "rew_orient": torch.zeros(),
-                "rew_effort": torch.zeros(),
-            }
-    """
+    # original_code = """
+    # class EpisodeMetrics:
+    #     def __init__(self):
+    #         self.episode_sums = {
+    #             "rew_pos": torch.zeros(),
+    #             "rew_orient": torch.zeros(),
+    #             "rew_effort": torch.zeros(),
+    #         }
+    # """
 
-    updated_code, modified_partial_code = inject_new_dict(partial_code, original_code)
-    print("Updated Original Code:\n", updated_code)
-    print("Modified Partial Code:\n", modified_partial_code)
+    # updated_code, modified_partial_code = inject_new_dict(partial_code, original_code)
+    # print("Updated Original Code:\n", updated_code)
+    # print("Modified Partial Code:\n", modified_partial_code)
