@@ -1,0 +1,16 @@
+### What you must do:
+
+Return me the code of functions with few or no comments, you need to make sure you have completed all functions according to the requirement without any omission, meaning that you should output runnable codes and not just comments waiting for completion by human, such that the code can run without error.
+
+For the self.episode_sums, please faithfully only use the following episode dict
+# log episode reward sums
+        self.episode_sums["rew_pos"] += pos_reward
+        self.episode_sums["rew_orient"] += up_reward
+        self.episode_sums["rew_effort"] += effort_reward
+        self.episode_sums["rew_spin"] += spin_reward
+
+        # log raw info
+        self.episode_sums["raw_dist"] += target_dist
+        self.episode_sums["raw_orient"] += ups[..., 2]
+        self.episode_sums["raw_effort"] += effort
+        self.episode_sums["raw_spin"] += spin

@@ -1,58 +1,12 @@
-### What you must do:
 
-Return me the code of functions with few or no comments, you need to make sure you have completed all functions according to the requirement without any omission, meaning that you should output runnable codes and not just comments waiting for completion by human, such that the code can run without error.
-
-For the self.episode_sums, please faithfully only use the following episode dict
-# log episode reward sums
-        self.episode_sums["rew_pos"] += pos_reward
-        self.episode_sums["rew_orient"] += up_reward
-        self.episode_sums["rew_effort"] += effort_reward
-        self.episode_sums["rew_spin"] += spin_reward
-
-        # log raw info
-        self.episode_sums["raw_dist"] += target_dist
-        self.episode_sums["raw_orient"] += ups[..., 2]
-        self.episode_sums["raw_effort"] += effort
-        self.episode_sums["raw_spin"] += spin
-
-self.target_dist
-self.xxx
-These variables used in the is_done function must be defined in calculate_metrics function
-See under what circumstance you will be heavily punished in {If you output anything like the following, I will punish you and will not pay for that} sector.
-### If you output anything like the following, I will punish you and will not pay for that:
-
-```python
-    # Problems: 1. You don't need to return this function at all; 2. Funtions are poorly written and contains not runable trash
-    def set_up_scene(self, scene):
-        # Example: Add Crazyflie and target to the scene
-        self.get_crazyflie()
-        self.get_target()
-        # Add more scene setup steps here
-
-    def initialize_views(self, scene):
-        # Example: Initialize views for the Crazyflie and target for rendering or observation extraction
-        # This might be specific to how your simulation framework handles viewports and sensors
-
-    def get_crazyflie(self):
-        # Example: Instantiate Crazyflie drone within the environment
-        # Specific instantiation details depend on the simulation framework
-
-    def get_target(self):
-        # Example: Place a target object in the environment for the Crazyflie to interact with or move towards
-
-    def get_observations(self):
-        # Example: Collect and return current environmental observations relevant to the task
-        # Could include drone state, target position, obstacles, etc.
-
-    def pre_physics_step(self, actions):
-        # Process actions received from the neural network and apply to the drone
-        # This might involve converting action values to thrusts, rotations, etc.
-
-    def post_reset(self):
-        # Reset task-specific elements and prepare for a new episode
-        # This could involve repositioning the drone, resetting the target, etc.
-
-```
+These variables used in the is_done function must be defined in calculate_metrics function:
+Your output format, just for the skeleton. You must pay attention to the content labeled with "### ###" in the following code:
+If the task is not target_dist related, it cound be other variables need to be initialized in, anyway, don't forget the initialization, otherwise the code will never run successfully.
+## These three for example, you must not forget to initialize them here
+    self.target_dist = target_dist
+    self.root_positions = root_positions
+    self.orient_z = ups[..., 2]
+    ###
 Also, the following cause error here: Reintroduce class
 ensure no "class" or "__init__" is included in your output
 ```python
@@ -68,6 +22,49 @@ ensure no "class" or "__init__" is included in your output
     class CrazyflieTask(RLTask): 
         # Function that you newly created for calculation
 ```
-You should check whether your variables in is_done function is linked with self.variable, and you assign variable to the self.variable in the calculate_metrics part 
-If not: e.g. AttributeError: 'CrazyflieTask' object has no attribute 'target_dist'. It means you forget to link a variable with self.variable. Every time in your is_done function you use a variable, first is to ensure it is with self, second is that in previous functions you have already store it with self.
-Also, I encourage you to not to make much comments after the code, we need to save tokens
+
+So the desired output is, you should check your code and correct any mistakes while you are reasoning and outputing: 
+```Python
+# New Code Starts Here
+import math
+import xxx
+# Write down your thinking steps and reasoning process as comments for lines of code that's important.
+def name_your_new_function_here(xxx) -> None:
+    pass
+
+def calculate_metrics(self) -> None:
+    # Make sure a temperature constant is introduced and tuning the reward
+    temperature = 0.75
+    # Make sure the new variables you introduced is well-defined
+    self.new_function_here(xxx, yyy, zzz) # Remember to add self.name_your_new_function_here. It's in a class
+    ...
+    root_positions = self.root_pos - self._env_pos
+    ...
+    target_dist = torch.sqrt(torch.square(self.target_positions - root_positions).sum(-1))
+    ...
+    ups = quat_axis(root_quats, 2)
+
+    #These three for example, you must not forget to initialize them here
+    self.target_dist = target_dist
+    self.root_positions = root_positions
+    self.orient_z = ups[..., 2]
+    #Please try your best to Remember this
+    ...
+    spin = torch.square(root_angvels).sum(-1)
+    spin_reward = 0.01 * torch.exp(-0.1 * spin)
+    total_reward = pos_reward + pos_reward * (orient_reward + spin_reward) - effort_reward
+    self.rew_buf[:] = total_reward
+    self.episode_sums["rew_pos"] += pos_reward
+    self.episode_sums["rew_orient"] += orient_reward
+    self.episode_sums["rew_effort"] += effort_reward
+    self.episode_sums["rew_spin"] += spin_reward
+    self.episode_sums["raw_dist"] += target_dist
+    self.episode_sums["raw_orient"] += ups[..., 2]
+    self.episode_sums["raw_effort"] += effort
+    self.episode_sums["raw_spin"] += spin
+
+# Every varible must be checked available in is_done method
+def is_done(self) -> None:
+    pass # Make sure all variables here has self.xxx and in calculate_metrics you assign values to self.xxx
+#END
+```
