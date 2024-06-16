@@ -1,6 +1,5 @@
 You will output the detailed task_description, which includes:
 1. Explanation of the task: e.g., Our task is to teach the drone to .... Key points are: ...
 2. Nail down the parameters: Given the brief task description, please turn it into feasible, detailed task description that can help your fellow reward function engineer to think deeper. You may implement the CoT(Chain of Though), advanced RL training technique(curiosity driven, sparse/dense reward), and set up the scene by words: start from (where), go straight to (something), and finally (something)
-3. You have most control of the payment for your fellow. Teach your fellow to write good code: Using CoT (Chain-of-Thought) when programming, Add short comments to explain the idea of lines of code in the function. Explicitly infer and add notations on varibles' shapes, Strictly follow the API guidebook, etc.
-4. Satefy considerations: identify some satefy issues that would help your fellow improve the safety motion both in Simulation and Reality
-5. You need to design how you will pay for each contribution the engineer made, step-by-step, achieve the goal finally.
+3. Satefy considerations: identify some satefy issues that would help your fellow improve the safety motion both in Simulation and Reality
+4. You need to design how you will pay for each contribution the engineer made, step-by-step, achieve the goal finally.

@@ -19,6 +19,7 @@ class Agent:
             guide the reward function engineer on performance,
             creativity, and robustness of the reward function
             """
+            
             cfg = self.cfg
 
             name = cfg.critic_agent.name
@@ -27,6 +28,10 @@ class Agent:
             critic_prompt = file_to_string(f"{self.critic_dir}/user.txt")
             # task_description: str = file_to_string(f"{self.EUREKA_ROOT_DIR}/input/task_description.txt")
             task_description: str = cfg.task.description
+            self.task = task_description
+            if not cfg.critic_agent.enable:
+                self.detailed_task_description = task_description
+                return
             system_instruction = file_to_string(f"{self.critic_dir}/system.txt")
             system_instruction = system_instruction.format(
                 name=name,
@@ -72,7 +77,6 @@ class Agent:
         env_config = " " #file_to_string(f"{self.EUREKA_ROOT_DIR}/input/crazyflie.yaml")
         must_do = file_to_string(f"{self.actor_dir}/must_do.txt")
         final = "Add a sign for end of your code, when you finish the is_done part: #END\n"
-
         # Assemble the full prompt
         initial_user = initial_user.format(
             task_obs_code_string=task_obs_code_string,
@@ -98,16 +102,16 @@ class Agent:
         ]
 
     def message(self):
-         """
-         Assemble the full prompt
-         """
-         self.critic_agent()
-         self.actor_agent()
-         return self.messages
+        """
+        Assemble the full prompt
+        """
+        self.critic_agent()
+        self.actor_agent()
+        return self.messages
 
-@hydra.main(config_path="../config", config_name="config", version_base="1.3")
+@hydra.main(config_path="../config", config_name="config_linux", version_base="1.3")
 def main(cfg):
-    agent = Agent(cfg=cfg)
+    agent = Agent(cfg=cfg, result_dir="results")
     agent.critic_agent()
     agent.actor_agent()
     # print(agent.message())
