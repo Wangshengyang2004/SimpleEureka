@@ -17,9 +17,9 @@ output:
   overwrite : "/home/simonwsy/.local/share/ov/pkg/isaac_sim-2023.1.1/OmniIsaacGymEnvs/omniisaacgymenvs/tasks/crazyflie.py"
 
 generation:
-  chunk_size: 4 # No more than 5
-  epochs: 1
-  sample: 4
+  chunk_size: 5 # No more than 5
+  epochs: 2
+  sample: 50
   run_all: True
 
 critic_agent:
@@ -52,4 +52,4 @@ max_epochs: 50
 defaults:
   - _self_
   - api: gpt-4
-  - task: double_flipping
+  - task: roll_flipping

@@ -1,5 +1,5 @@
-import numpy as np
 import math
+import numpy as np
 import torch
 from omni.isaac.core.objects import DynamicSphere
 from omni.isaac.core.prims import RigidPrimView
@@ -16,7 +16,7 @@ class CrazyflieTask(RLTask):
     def __init__(self, name, sim_config, env, offset=None) -> None:
         self.update_config(sim_config)
 
-        self._num_observations = 18
+        self._num_observations = 30
         self._num_actions = 4
 
         self._crazyflie_position = torch.tensor([0, 0, 1.0])
@@ -35,29 +35,25 @@ class CrazyflieTask(RLTask):
         self._env_spacing = self._task_cfg["env"]["envSpacing"]
         self._max_episode_length = self._task_cfg["env"]["maxEpisodeLength"]
 
-        self.dt = self._task_cfg["sim"]["dt"]
+        self.dt = 0.02  # Example time step
 
-        # parameters for the crazyflie
+        # Parameters for the crazyflie
         self.arm_length = 0.05
 
-        # parameters for the controller
-        self.motor_damp_time_up = 0.15
-        self.motor_damp_time_down = 0.15
-
-        # I use the multiplier 4, since 4*T ~ time for a step response to finish, where
-        # T is a time constant of the first-order filter
+        # Parameters for the controller
+        self.motor_damp_time_up = 0.1
+        self.motor_damp_time_down = 0.1
         self.motor_tau_up = 4 * self.dt / (self.motor_damp_time_up + EPS)
         self.motor_tau_down = 4 * self.dt / (self.motor_damp_time_down + EPS)
 
-        # thrust max
+        # Thrust max
         self.mass = 0.028
-        self.thrust_to_weight = 1.9
-
-        self.motor_assymetry = np.array([1.0, 1.0, 1.0, 1.0])
-        # re-normalizing to sum-up to 4
+        self.thrust_to_weight = 5.0
+        self.motor_assymetry = np.array([0.95, 1.05, 1.0, 1.0])
         self.motor_assymetry = self.motor_assymetry * 4.0 / np.sum(self.motor_assymetry)
-
         self.grav_z = -1.0 * self._task_cfg["sim"]["gravity"][2]
+
+        
 
     def set_up_scene(self, scene) -> None:
         self.get_crazyflie()
@@ -112,6 +108,7 @@ class CrazyflieTask(RLTask):
     def get_observations(self) -> dict:
         self.root_pos, self.root_rot = self._copters.get_world_poses(clone=False)
         self.root_velocities = self._copters.get_velocities(clone=False)
+        self.thrust_cmds = self.actions  # Assuming self.actions holds the latest thrust commands
 
         root_positions = self.root_pos - self._env_pos
         root_quats = self.root_rot
@@ -123,17 +120,35 @@ class CrazyflieTask(RLTask):
         root_linvels = self.root_velocities[:, :3]
         root_angvels = self.root_velocities[:, 3:]
 
-        self.obs_buf[..., 0:3] = self.target_positions - root_positions
+        # Calculating linear and angular accelerations
+        self.lin_accel = (root_linvels - self.prev_linvels) / self.dt
+        self.ang_accel = (root_angvels - self.prev_angvels) / self.dt
+        self.prev_linvels = root_linvels
+        self.prev_angvels = root_angvels
 
+        # Including distance to target
+        self.target_distances = self.target_positions - root_positions
+
+        # Initialize obs_buf if not already initialized
+        if not hasattr(self, 'obs_buf') or self.obs_buf.shape[1] != 30:
+            self.obs_buf = torch.zeros((self._num_envs, 30), device=self._device, dtype=torch.float32)
+
+        self.obs_buf[..., 0:3] = self.target_positions - root_positions
         self.obs_buf[..., 3:6] = rot_x
         self.obs_buf[..., 6:9] = rot_y
         self.obs_buf[..., 9:12] = rot_z
-
         self.obs_buf[..., 12:15] = root_linvels
         self.obs_buf[..., 15:18] = root_angvels
 
+        # Adding new observations
+        self.obs_buf[..., 18:22] = self.thrust_cmds
+        self.obs_buf[..., 22:25] = self.lin_accel
+        self.obs_buf[..., 25:28] = self.ang_accel
+        self.obs_buf[..., 28:30] = self.target_distances[:, :2]  # Assuming only x and y distances are needed here
+
         observations = {self._copters.name: {"obs_buf": self.obs_buf}}
         return observations
+
 
     def pre_physics_step(self, actions) -> None:
         if not self.world.is_playing():
@@ -150,28 +165,27 @@ class CrazyflieTask(RLTask):
         actions = actions.clone().to(self._device)
         self.actions = actions
 
-        # clamp to [-1.0, 1.0]
+        # Clamp to [-1.0, 1.0]
         thrust_cmds = torch.clamp(actions, min=-1.0, max=1.0)
-        # scale to [0.0, 1.0]
+        # Scale to [0.0, 1.0]
         thrust_cmds = (thrust_cmds + 1.0) / 2.0
-        # filtering the thruster and adding noise
+        # Filtering the thruster and adding noise
         motor_tau = self.motor_tau_up * torch.ones((self._num_envs, 4), dtype=torch.float32, device=self._device)
         motor_tau[thrust_cmds < self.thrust_cmds_damp] = self.motor_tau_down
         motor_tau[motor_tau > 1.0] = 1.0
 
-        # Since NN commands thrusts we need to convert to rot vel and back
         thrust_rot = thrust_cmds**0.5
         self.thrust_rot_damp = motor_tau * (thrust_rot - self.thrust_rot_damp) + self.thrust_rot_damp
         self.thrust_cmds_damp = self.thrust_rot_damp**2
 
-        ## Adding noise
-        thrust_noise = 0.01 * torch.randn(4, dtype=torch.float32, device=self._device)
+        # Adding noise
+        thrust_noise = 0.005 * torch.randn(4, dtype=torch.float32, device=self._device)
         thrust_noise = thrust_cmds * thrust_noise
         self.thrust_cmds_damp = torch.clamp(self.thrust_cmds_damp + thrust_noise, min=0.0, max=1.0)
 
         thrusts = self.thrust_max * self.thrust_cmds_damp
 
-        # thrusts given rotation
+        # Thrusts given rotation
         root_quats = self.root_rot
         rot_x = quat_axis(root_quats, 0)
         rot_y = quat_axis(root_quats, 1)
@@ -184,32 +198,20 @@ class CrazyflieTask(RLTask):
         thrusts = thrusts.reshape(-1, 4, 1)
         thrusts = torch.cat((force_xy, thrusts), 2)
 
-        thrusts_0 = thrusts[:, 0]
-        thrusts_0 = thrusts_0[:, :, None]
-
-        thrusts_1 = thrusts[:, 1]
-        thrusts_1 = thrusts_1[:, :, None]
-
-        thrusts_2 = thrusts[:, 2]
-        thrusts_2 = thrusts_2[:, :, None]
-
-        thrusts_3 = thrusts[:, 3]
-        thrusts_3 = thrusts_3[:, :, None]
-
-        mod_thrusts_0 = torch.matmul(rot_matrix, thrusts_0)
-        mod_thrusts_1 = torch.matmul(rot_matrix, thrusts_1)
-        mod_thrusts_2 = torch.matmul(rot_matrix, thrusts_2)
-        mod_thrusts_3 = torch.matmul(rot_matrix, thrusts_3)
+        mod_thrusts_0 = torch.matmul(rot_matrix, thrusts[:, 0][:, :, None])
+        mod_thrusts_1 = torch.matmul(rot_matrix, thrusts[:, 1][:, :, None])
+        mod_thrusts_2 = torch.matmul(rot_matrix, thrusts[:, 2][:, :, None])
+        mod_thrusts_3 = torch.matmul(rot_matrix, thrusts[:, 3][:, :, None])
 
         self.thrusts[:, 0] = torch.squeeze(mod_thrusts_0)
         self.thrusts[:, 1] = torch.squeeze(mod_thrusts_1)
         self.thrusts[:, 2] = torch.squeeze(mod_thrusts_2)
         self.thrusts[:, 3] = torch.squeeze(mod_thrusts_3)
 
-        # clear actions for reset envs
+        # Clear actions for reset envs
         self.thrusts[reset_env_ids] = 0
 
-        # spin spinning rotors
+        # Spin spinning rotors
         prop_rot = self.thrust_cmds_damp * self.prop_max_rot
         self.dof_vel[:, 0] = prop_rot[:, 0]
         self.dof_vel[:, 1] = -1.0 * prop_rot[:, 1]
@@ -218,10 +220,10 @@ class CrazyflieTask(RLTask):
 
         self._copters.set_joint_velocities(self.dof_vel)
 
-        # apply actions
+        # Apply actions
         for i in range(4):
             self._copters.physics_rotors[i].apply_forces(self.thrusts[:, i], indices=self.all_indices)
-
+   
     def post_reset(self):
         thrust_max = self.grav_z * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0
         self.thrusts = torch.zeros((self._num_envs, 4, 3), dtype=torch.float32, device=self._device)
@@ -247,12 +249,12 @@ class CrazyflieTask(RLTask):
             "rew_orient": torch_zeros(),
             "rew_effort": torch_zeros(),
             "rew_spin": torch_zeros(),
-            "rew_speed": torch_zeros(),
-            "rew_coline": torch_zeros(),
             "raw_dist": torch_zeros(),
             "raw_orient": torch_zeros(),
             "raw_effort": torch_zeros(),
             "raw_spin": torch_zeros(),
+            "rew_speed": torch_zeros(),
+            "rew_coline": torch_zeros(),
         }
 
         self.root_pos, self.root_rot = self._copters.get_world_poses()
@@ -263,12 +265,18 @@ class CrazyflieTask(RLTask):
         self.initial_ball_pos, self.initial_ball_rot = self._balls.get_world_poses(clone=False)
         self.initial_root_pos, self.initial_root_rot = self.root_pos.clone(), self.root_rot.clone()
 
-        # control parameters
+        # Control parameters
         self.thrusts = torch.zeros((self._num_envs, 4, 3), dtype=torch.float32, device=self._device)
         self.thrust_cmds_damp = torch.zeros((self._num_envs, 4), dtype=torch.float32, device=self._device)
         self.thrust_rot_damp = torch.zeros((self._num_envs, 4), dtype=torch.float32, device=self._device)
 
+        # Initializing previous velocities for calculating accelerations
+        self.prev_linvels = torch.zeros((self._num_envs, 3), dtype=torch.float32, device=self._device)
+        self.prev_angvels = torch.zeros((self._num_envs, 3), dtype=torch.float32, device=self._device)
+
         self.set_targets(self.all_indices)
+
+
 
     def set_targets(self, env_ids):
         num_sets = len(env_ids)
