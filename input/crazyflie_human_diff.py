@@ -1,5 +1,3 @@
-# Features: Use quaternion to control the orientation of the drone, (0,0,0,1) means a 360 degree flip
-# Use Curiosity reward to encourage the agent to perform more flips   
 def calculate_metrics(self) -> None:
        root_positions = self.root_pos - self._env_pos
        root_angvels = self.root_velocities[:, 3:]
@@ -19,7 +17,7 @@ def calculate_metrics(self) -> None:
        position_reward = torch.exp(-position_temp * position_error ** 2)
 
        #phase 1
-       target_angvel_y = 5.0  # Reduced target angular velocity threshold to make it achievable
+       target_angvel_y = 4.0  # Reduced target angular velocity threshold to make it achievable
        angvel_error = torch.abs(root_angvels[..., 1] - target_angvel_y)
        flip_reward = torch.exp(-flip_temp * angvel_error ** 2)
 
@@ -43,7 +41,7 @@ def calculate_metrics(self) -> None:
        num_flips = self.episode_sums["successful_flip_reward"]
 
        # Create boolean mask for environments with fewer than 2 successful flips
-       flip_mask = num_flips < 6
+       flip_mask = num_flips < 2
 
        # Set curiosity reward if 2 or more successful flips have been achieved
        curiosity_reward = torch.where(num_flips >= 2, torch.tensor(0.5, device=self._device), torch.tensor(0.0, device=self._device))
@@ -62,16 +60,3 @@ def calculate_metrics(self) -> None:
        self.episode_sums["quaternion_reward"] += quaternion_reward
        self.episode_sums["successful_flip_reward"] += successful_flip_reward
        self.episode_sums["curiosity_reward"] += curiosity_reward
-
-   def is_done(self) -> None:
-       # resets due to misbehavior
-       ones = torch.ones_like(self.reset_buf)
-       die = torch.zeros_like(self.reset_buf)
-       die = torch.where(self.target_dist > 5.0, ones, die)
-
-       # z >= 0.5 & z <= 5.0 & up > 0
-       die = torch.where(self.root_positions[..., 2] < 0.5, ones, die)
-       die = torch.where(self.root_positions[..., 2] > 5.0, ones, die)
-
-       # resets due to episode length
-       self.reset_buf[:] = torch.where(self.progress_buf >= self._max_episode_length - 1, ones, die)

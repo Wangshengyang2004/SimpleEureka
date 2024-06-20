@@ -23,7 +23,7 @@ generation:
   run_all: True
 
 critic_agent:
-  enable: False
+  enable: True
   name: "Alice"
   duty: "product manager"
 
