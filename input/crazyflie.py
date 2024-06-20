@@ -254,6 +254,7 @@ class CrazyflieTask(RLTask):
             "raw_spin": torch_zeros(),
             "rew_speed": torch_zeros(),
             "rew_coline": torch_zeros(),
+            "successful_flip_reward": torch_zeros(),
         }
 
         self.root_pos, self.root_rot = self._copters.get_world_poses()
