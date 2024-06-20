@@ -1,9 +1,8 @@
 The Python environment is {task_obs_code_string}. Env Config is {env_config}
 Your fellow now give you the following task: {optimized_task_description} Write a reward function for it. Remember, your fellow decides your payment.
-You may refer to Human code difference as a runnable prototype for the task, however, if you think using this technique will ruin the diversity and randomness of the training, you may find another way out, I will pay you for your extra thought.{human_code_diff} 
+We have a human baseline which can make flipping, but still room for improvement: {human_code_diff} \n
 You have additional resources, which you're encouraged to follow and learn:
 Use API-existed functions first: {api_doc}
-Useful code outside Omniverse Isaac Sim: {external_source}
 Follow the output tips: {code_output_tip}
 And Must-do : {must_do}
 Finally: {final}

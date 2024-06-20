@@ -1,42 +1,54 @@
-From: https://eureka-research.github.io/
-Quadcopter, best Eureka reward:
-import torch
-from torch import Tensor
-from typing import Dict, Tuple
-
 @torch.jit.script
-def compute_reward(root_positions: Tensor, root_linvels: Tensor, root_angvels: Tensor) -> Tuple[Tensor, Dict[str, Tensor]]:
-    quadcopter_x = root_positions[..., 0]
-    quadcopter_y = root_positions[..., 1]
-    quadcopter_z = root_positions[..., 2]
+def compute_success(root_positions, root_quats, root_linvels, root_angvels, reset_buf, consecutive_successes, progress_buf, max_episode_length):
+    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, float) -> Tuple[Tensor, Tensor, Tensor]
 
-    target_x = 0.0
-    target_y = 0.0
-    target_z = 1.0
+    target_dist = torch.sqrt(root_positions[..., 0] * root_positions[..., 0] +
+                             root_positions[..., 1] * root_positions[..., 1] +
+                             (1 - root_positions[..., 2]) * (1 - root_positions[..., 2]))
+    pos_reward = 1.0 / (1.0 + target_dist * target_dist)
 
-    squared_distance = (quadcopter_x - target_x)**2 + (quadcopter_y - target_y)**2 + (quadcopter_z - target_z)**2
+    ups = quat_axis(root_quats, 2)
+    tiltage = torch.abs(1 - ups[..., 2])
+    up_reward = 1.0 / (1.0 + tiltage * tiltage)
 
-    linvel_magnitude = torch.sqrt(torch.sum(root_linvels**2, dim=-1))
-    angvel_magnitude = torch.sqrt(torch.sum(root_angvels**2, dim=-1))
+    spinnage = torch.abs(root_angvels[..., 2])
+    spinnage_reward = 1.0 / (1.0 + spinnage * spinnage)
 
-    # Change temperature parameters and re-scale
-    sq_distance_temperature = 1.0
-    linvel_temperature = 0.075  # Adjusted from 0.05 to 0.075
-    angvel_temperature = 0.005  # Adjusted from 0.01 to 0.005
-    angvel_penalty_temperature = 0.05  # Adjusted from 0.1 to 0.05
+    reward = pos_reward + pos_reward * (up_reward + spinnage_reward)
 
-    # Compute the reward components and apply transformations
-    sq_distance_reward = torch.exp(-sq_distance_temperature * squared_distance)
-    linvel_reward = torch.exp(-linvel_temperature * (linvel_magnitude - 0.5)) - 1.0  # Modified to encourage variance in linvel_reward
-    angvel_reward = torch.exp(-angvel_temperature * angvel_magnitude)
-    angvel_penalty = -torch.exp(angvel_penalty_temperature * (angvel_magnitude - 0.5))  # Modified to encourage variance in angvel_penalty
+    ones = torch.ones_like(reset_buf)
+    die = torch.zeros_like(reset_buf)
+    die = torch.where(target_dist > 3.0, ones, die)
+    die = torch.where(root_positions[..., 2] < 0.3, ones, die)
 
-    # Check success condition
-    success_condition = (squared_distance < 0.01).type(torch.float32)
-    success_reward = 15 * success_condition  # Increased the success reward from 10 to 15
+    consecutive_successes = -target_dist.mean()
+    reset = torch.where(progress_buf >= max_episode_length - 1, ones, die)
 
-    # Calculate the total reward
-    total_reward = success_reward + sq_distance_reward + linvel_reward + angvel_reward + angvel_penalty
+    return reward, reset, consecutive_successes
+    
+@torch.jit.script
+def compute_reward(root_positions: torch.Tensor, root_angvels: torch.Tensor, root_quats: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+    # Adjust scale and temperature values based on feedback
+    position_temp: float = 0.1  # Keep as is since it seems effective
+    flip_temp: float = 0.2  # Increased to provide smoother adjustments
 
-    # Return the total reward and the components
-    return total_reward, {"success_reward": success_reward, "sq_distance_reward": sq_distance_reward, "linvel_reward": linvel_reward, "angvel_reward": angvel_reward, "angvel_penalty": angvel_penalty}
+    # Positional error (the drone should stay near (0, 0, 1))
+    target_position = torch.tensor([0.0, 0.0, 1.0], device=root_positions.device)
+    position_error = torch.norm(target_position - root_positions, dim=-1)
+    position_reward = torch.exp(-position_temp * position_error ** 2)
+
+    # Refine backflip success metric using angular velocity around Y-axis
+    desired_angvel_y = 10.0  # Threshold for effective backflip
+    flip_velocity_error = torch.abs(root_angvels[..., 1] - desired_angvel_y)
+    soft_flip_reward = torch.sigmoid(-flip_temp * flip_velocity_error + 5)  # Added offset to initialize learning
+
+    # Combined reward aiming for stability and successful flip
+    total_reward = position_reward + soft_flip_reward
+    
+    # Reward components for debugging
+    reward_components = {
+        "position_reward": position_reward,
+        "soft_flip_reward": soft_flip_reward
+    }
+    
+    return total_reward, reward_components

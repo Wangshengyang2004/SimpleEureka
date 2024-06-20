@@ -35,21 +35,21 @@ class CrazyflieTask(RLTask):
         self._env_spacing = self._task_cfg["env"]["envSpacing"]
         self._max_episode_length = self._task_cfg["env"]["maxEpisodeLength"]
 
-        self.dt = 0.02  # Example time step
+        self.dt = 0.005
 
         # Parameters for the crazyflie
         self.arm_length = 0.05
 
         # Parameters for the controller
-        self.motor_damp_time_up = 0.1
-        self.motor_damp_time_down = 0.1
+        self.motor_damp_time_up = 0.15
+        self.motor_damp_time_down = 0.15
         self.motor_tau_up = 4 * self.dt / (self.motor_damp_time_up + EPS)
         self.motor_tau_down = 4 * self.dt / (self.motor_damp_time_down + EPS)
 
         # Thrust max
         self.mass = 0.028
-        self.thrust_to_weight = 5.0
-        self.motor_assymetry = np.array([0.95, 1.05, 1.0, 1.0])
+        self.thrust_to_weight = 7.5
+        self.motor_assymetry = np.array([1.0, 1.0, 1.0, 1.0])
         self.motor_assymetry = self.motor_assymetry * 4.0 / np.sum(self.motor_assymetry)
         self.grav_z = -1.0 * self._task_cfg["sim"]["gravity"][2]
 
@@ -230,7 +230,6 @@ class CrazyflieTask(RLTask):
         self.thrust_cmds_damp = torch.zeros((self._num_envs, 4), dtype=torch.float32, device=self._device)
         self.thrust_rot_damp = torch.zeros((self._num_envs, 4), dtype=torch.float32, device=self._device)
         self.thrust_max = torch.tensor(thrust_max, device=self._device, dtype=torch.float32)
-
         self.motor_linearity = 1.0
         self.prop_max_rot = 433.3
 
@@ -324,6 +323,7 @@ class CrazyflieTask(RLTask):
             self.episode_sums[key][env_ids] = 0.0
 
     def calculate_metrics(self) -> None:
+        print(self.thrust_max)
         root_positions = self.root_pos - self._env_pos
         root_quats = self.root_rot
         root_angvels = self.root_velocities[:, 3:]
@@ -336,7 +336,6 @@ class CrazyflieTask(RLTask):
 
         # orient reward
         ups = quat_axis(root_quats, 2)
-        self.orient_z = ups[..., 2]
         up_reward = torch.clamp(ups[..., 2], min=0.0, max=1.0)
 
         # effort reward
@@ -368,10 +367,9 @@ class CrazyflieTask(RLTask):
         die = torch.zeros_like(self.reset_buf)
         die = torch.where(self.target_dist > 5.0, ones, die)
 
-        # z >= 0.5 & z <= 5.0 & up > 0
+        # z >= 0.5 & z <= 5.0
         die = torch.where(self.root_positions[..., 2] < 0.5, ones, die)
         die = torch.where(self.root_positions[..., 2] > 5.0, ones, die)
-        die = torch.where(self.orient_z < 0.0, ones, die)
 
         # resets due to episode length
         self.reset_buf[:] = torch.where(self.progress_buf >= self._max_episode_length - 1, ones, die)

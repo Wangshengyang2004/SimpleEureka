@@ -45,8 +45,12 @@ checkpoint_name: "latest"
 run_all: False
 record_video: True
 record_base_dir: "./videos"
+recording_length: 1000
+recording_interval: 300
 concat_videos: True
+num_envs: 64
+max_epochs: 50
 defaults:
   - _self_
   - api: gpt-4
-  - task: hover_222
+  - task: roll_flipping

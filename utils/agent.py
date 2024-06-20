@@ -87,7 +87,6 @@ class Agent:
             final=final,
             must_do=must_do,
             api_doc=api_doc,
-            external_source=external_source
         )
 
         self.messages = [

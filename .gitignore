@@ -4,6 +4,7 @@ results/*
 config/api/*
 notebooks/plot/*
 events.out*
+deprecated/*
 backup/*
 multirun/*
 *.png

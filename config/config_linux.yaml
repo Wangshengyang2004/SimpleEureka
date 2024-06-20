@@ -18,8 +18,8 @@ output:
 
 generation:
   chunk_size: 5 # No more than 5
-  epochs: 2
-  sample: 50
+  epochs: 1
+  sample: 10
   run_all: True
 
 critic_agent:
