@@ -383,7 +383,7 @@ def main(cfg: DictConfig) -> None:
         )
 
         best_reward = file_to_string(max_reward_code_path)
-        with open(output_file.replace(".py", ".txt"), "w") as file:
+        with open(max_reward_code_path.replace(".py", ".txt"), "w") as file:
             file.writelines(best_reward + "\n")
 
     if cfg.evaluation:
